@@ -1,11 +1,14 @@
 import pandas as pd
-# limpando colunas e linhas vazias
-df = pd.read_csv(r"C:\Users\ricardo.gomes\Desktop\Python VS\projeto_contratos\data\CONTRATOS 2024-2025.CSV", encoding="latin-1", sep=";")
-df = df.drop('Unnamed: 0', axis=1)
-df = df.dropna(how="all", axis=0)
-df.columns = df.iloc[0]
-df = df[1:].reset_index(drop=True)
-df.columns = df.columns.str.replace(r'^\s+|\s+$', '', regex=True).str.strip()
+from utils import clean
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_PATH = BASE_DIR / "data" / "raw" / "CONTRATOS 2024-2025.CSV"
+df = pd.read_csv(DATA_PATH, encoding="latin-1", sep=";")
+clean(df)
 
 # colunas de data
 date_cols = ["Dt.Lanç", "Emissão", "Venc"]
