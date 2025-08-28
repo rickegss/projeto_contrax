@@ -2,7 +2,7 @@
 import streamlit as st
 import pandas as pd
 from streamlit_autorefresh import st_autorefresh
-from pages import parcelas
+from pages import parcelas, contratos
 
 st.set_page_config(
     page_title="Gestão Contratual",
@@ -22,7 +22,7 @@ with tab1:
     parcelas.show()
     
 with tab2:
-    ...
+    contratos.show()
 
 with tab3:
     ...

@@ -13,13 +13,17 @@ def show():
     st.write("---")
     st.header("Filtros")
 
-    # planilha de contratos
-    parcelas = pd.read_csv(DATA_PATH)
+    if "parcelas" not in st.session_state:
+        try:
+            st.session_state.parcelas = pd.read_csv(DATA_PATH)
+        except FileNotFoundError:
+            st.error(f"Arquivo de dados não encontrado em: {DATA_PATH}")
+            st.stop()
 
-    # coluna superior de filtros
+    parcelas = st.session_state.parcelas.copy()
+
     col1, col2, col3, col4 = st.columns(4)
 
-    # dados de data
     mes_dict = {
         "jan": 1, "fev": 2, "mar": 3, "abr": 4,
         "mai": 5, "jun": 6, "jul": 7, "ago": 8,
@@ -29,173 +33,182 @@ def show():
     mes_atual = [k for k, v in mes_dict.items() if v == now.month][0]
     data_lanc = now.strftime("%d/%m/%y %H:%M")
 
+    def update_csv(df_to_save):
+        df_to_save.to_csv(DATA_PATH, index=False)
+        st.session_state.parcelas = pd.read_csv(DATA_PATH)
 
-    def update_csv():
-        """
-        Atualizar a planilha 
-        """
-        parcelas.to_csv(DATA_PATH, index=False)
+    for filtro in ["ano", "mes", "contrato", "status"]:
+        if f"toggle_{filtro}" not in st.session_state:
+            st.session_state[f"toggle_{filtro}"] = (filtro == "contrato")
 
-    # inicializa selecionar todos
-    for filtro in ["ano", "mes", "prestador", "status"]:
-        if filtro not in st.session_state and filtro == "prestador":
-            st.session_state[filtro] = True  # prestador começa selecionado
-        elif filtro not in st.session_state and filtro != "prestador":
-            st.session_state[filtro] = False
-
-    # função para alternar selecionar todos
     def toggle(filtro):
-        st.session_state[filtro] = not st.session_state[filtro]
+        st.session_state[f"toggle_{filtro}"] = not st.session_state[f"toggle_{filtro}"]
 
-    # filtro ano
     with col1:
         if st.button("Selecionar Todos", key="btn_ano"):
             toggle("ano")
         ano_filt = st.multiselect(
-            " Ano",
-            options=parcelas["Ano"].unique(),
-            default=parcelas["Ano"].unique() if st.session_state["ano"] else []
+            "Ano",
+            options=parcelas["Ano"].dropna().unique(),
+            default=parcelas["Ano"].dropna().unique() if st.session_state["toggle_ano"] else []
         )
 
-    # filtro mes
     with col2:
         if st.button("Selecionar Todos", key="btn_mes"):
             toggle("mes")
         mes_filt = st.multiselect(
             "Mês",
-            options=parcelas["Mês"].unique(),
-            default=parcelas["Mês"].unique() if st.session_state["mes"] else []
+            options=parcelas["Mês"].dropna().unique(),
+            default=parcelas["Mês"].dropna().unique() if st.session_state["toggle_mes"] else []
         )
 
-    # filtro prestador
     with col3:
-        if st.button("Selecionar Todos", key="btn_prestador"):
-            toggle("prestador")
-        prestador_filt = st.multiselect(
-            "Prestador",
-            options=parcelas["Prestador"].unique(),
-            default=parcelas["Prestador"].unique() if st.session_state["prestador"] else []
+        if st.button("Selecionar Todos", key="btn_contrato"):
+            toggle("contrato")
+        contrato_filt = st.multiselect(
+            "Contrato",
+            options=parcelas["Contrato"].dropna().unique(),
+            default=parcelas["Contrato"].dropna().unique() if st.session_state["toggle_contrato"] else []
         )
 
-    # filtro status
     with col4:
         if st.button("Selecionar Todos", key="btn_status"):
             toggle("status")
         status_filt = st.multiselect(
             "Status",
-            options=parcelas["Status"].unique(),
-            default=parcelas["Status"].unique() if st.session_state["status"] else []
+            options=parcelas["Status"].dropna().unique(),
+            default=parcelas["Status"].dropna().unique() if st.session_state["toggle_status"] else []
         )
 
-    # exibição final
-    parcelas_filtrado = parcelas[
-        (parcelas["Ano"].isin(ano_filt)) &
-        (parcelas["Mês"].isin(mes_filt)) &
-        (parcelas["Prestador"].isin(prestador_filt)) &
-        (parcelas["Status"].isin(status_filt))
-    ]
-
+    st.write("---")
     st.header("Parcelas")
-    st.write(parcelas_filtrado)
+
+    parcelas_filtrado = parcelas.copy()
+    if ano_filt:
+        parcelas_filtrado = parcelas_filtrado[parcelas_filtrado["Ano"].isin(ano_filt)]
+    if mes_filt:
+        parcelas_filtrado = parcelas_filtrado[parcelas_filtrado["Mês"].isin(mes_filt)]
+    if contrato_filt:
+        parcelas_filtrado = parcelas_filtrado[parcelas_filtrado["Contrato"].isin(contrato_filt)]
+    if status_filt:
+        parcelas_filtrado = parcelas_filtrado[parcelas_filtrado["Status"].isin(status_filt)]
+    
+    st.dataframe(
+    parcelas_filtrado,
+    column_config={
+        "Emissão": st.column_config.DateColumn(
+            "Emissão", 
+            format="DD/MM/YY"  
+        ),
+         "Venc": st.column_config.DateColumn(
+             "Vencimento",
+             format="DD/MM/YY"
+         ),
+         "Valor R$": st.column_config.NumberColumn(
+             "Valor da Parcela",
+             format='R$ %.2f'
+         )
+    }
+)
 
     col5, col6 = st.columns(2)
 
-    # botão lançar parcela
     with col5:
-        if "show" not in st.session_state:
-            st.session_state.show = False
+        if "show_lancar" not in st.session_state:
+            st.session_state.show_lancar = False
 
         if st.button("Lançar parcela", key="lancar"):
-            st.session_state.show = not st.session_state.show  # alterna abrir/fechar
+            st.session_state.show_lancar = not st.session_state.show_lancar
 
-        if st.session_state.show:
-            if "contrato_val" not in st.session_state:
-                st.session_state.contrato_val = []
-            if "valor_val" not in st.session_state:
-                st.session_state.valor_val = ""
-            if "doc_val" not in st.session_state:
-                st.session_state.doc_val = ""
+        if st.session_state.show_lancar:
+            with st.form("form_lancar", clear_on_submit=True):
+                contrato_val_lanc = st.multiselect(
+                    "Contrato:",
+                    options=parcelas["Contrato"].dropna().unique()
+                )
+                valor_val_lanc = st.text_input("Valor R$")
+                doc_val_lanc = st.text_input("Número do documento")
 
-            # inputs armazenados no session_state
-            st.session_state.contrato_val = st.multiselect(
-                "Contrato:",
-                options=parcelas["Contrato"].unique(),
-                default=st.session_state.contrato_val
-            )
-            st.session_state.valor_val = st.text_input(
-                "Valor R$",
-                value=st.session_state.valor_val
-            )
-            st.session_state.doc_val = st.text_input(
-                "Número do documento",
-                value=st.session_state.doc_val
-            )
+                if st.form_submit_button("Confirmar lançamento"):
+                    if contrato_val_lanc and valor_val_lanc:
+                        try:
+                            valor = float(valor_val_lanc.replace(",", "."))
+                            filtro = (parcelas["Contrato"].isin(contrato_val_lanc)) & (parcelas["Mês"] == mes_atual)
+                            
+                            if parcelas[filtro].empty:
+                                st.error("Nenhuma parcela encontrada para o contrato e mês atual.")
+                            else:
+                                parcelas.loc[filtro, ["Valor R$", "Dt.Lanç", "Doc", "Status"]] = [valor, data_lanc, doc_val_lanc, "LANÇADO"]
+                                update_csv(parcelas)
+                                st.success("Parcela lançada")
+                                st.session_state.show_lancar = False
+                                st.rerun()
 
-            # botão confirmar lançamento 
-            if st.button("Confirmar lançamento"):
-                if st.session_state.contrato_val and st.session_state.valor_val:
-                    try:
-                        valor = float(st.session_state.valor_val.replace(",", "."))
+                        except ValueError:
+                            st.error("Digite um valor numérico válido!")
+                    else:
+                        st.warning("Preencha Contrato e Valor!")
 
-                        filtro = (parcelas["Contrato"].isin(st.session_state.contrato_val)) & (parcelas["Mês"] == mes_atual)
-                        parcelas.loc[filtro, ["Valor R$", "Dt.Lanç", "Doc"]] = [
-                            valor, data_lanc, st.session_state.doc_val
-                        ]
-                        parcelas.loc[filtro, "Status"] = "LANÇADO"
-                        update_csv()
-                        st.success("Parcela lançada")
-
-                        # fecha o bloco de inputs após lançar
-                        st.session_state.show = False
-                    except ValueError:
-                        st.error("Digite um valor numérico válido!")
-                else:
-                    st.warning("Preencha todos os campos!")
-
-    # alterar parcela lançada:
     with col6:
-        if "show2" not in st.session_state:
-            st.session_state.show2 = False
+        if "show_modificar" not in st.session_state:
+            st.session_state.show_modificar = False
 
         if st.button("Modificar lançamento", key="modificar"):
-            st.session_state.show2 = not st.session_state.show2 
+            st.session_state.show_modificar = not st.session_state.show_modificar
 
-        if st.session_state.show2:
-            if "num_linha_val" not in st.session_state:
-                st.session_state.num_linha_val = ""
-            if "valor_val" not in st.session_state:
-                st.session_state.valor_val = ""
-            if "doc_val" not in st.session_state:
-                st.session_state.doc_val = ""
-            
-            st.session_state.num_linha_val = st.text_input(
-                "Insira o número da linha da parcela", 
-                value=st.session_state.num_linha_val
-            )
-            
-            st.session_state.valor_val = st.text_input(
-                "Alterar Valor R$:",
-                value=st.session_state.valor_val
-            )
+        if st.session_state.show_modificar:
+            with st.form("form_update_lancamento", clear_on_submit=True):
+                st.subheader("Alterar Dados do Lançamento")
+                num_linha_update = st.text_input("Nº da linha (índice) para alterar", key="linha_update")
+                valor_val_mod = st.text_input("Novo Valor R$ (opcional)", key="valor_mod")
+                doc_val_mod = st.text_input("Novo N° Documento (opcional)", key="doc_mod")
+                
+                if st.form_submit_button("Confirmar Alteração"):
+                    if num_linha_update and (valor_val_mod or doc_val_mod):
+                        try:
+                            linha_mod = int(num_linha_update)
+                            if linha_mod not in parcelas.index:
+                                 st.error("Linha (índice) inválida.")
+                            else:
+                                if valor_val_mod:
+                                    valor = float(valor_val_mod.replace(",", "."))
+                                    parcelas.loc[linha_mod, "Valor R$"] = valor
+                                if doc_val_mod:
+                                    parcelas.loc[linha_mod, "Doc"] = doc_val_mod
+                                
+                                parcelas.loc[linha_mod, "Dt.Lanç"] = data_lanc
+                                update_csv(parcelas)
+                                st.success(f"Parcela {linha_mod} atualizada.")
+                                st.session_state.show_modificar = False
+                                st.rerun()
+                        except ValueError:
+                            st.error("Digite um número de linha e/ou valor numérico válido!")
+                    else:
+                        st.warning("Preencha a linha e pelo menos um campo para alterar!")
 
-            if st.button("Alterar número de documento"):
-                st.session_state.doc_val = st.text_input(
-                    "N° Documento",
-                    value=st.session_state.doc_val
-                )
+            st.write("---")
 
-            # botão de confirmação
-            if st.button("Confirmar Alteração"):
-                if st.session_state.valor_val and st.session_state.num_linha_val:
-                    try:
-                        linha_mod = int(st.session_state.num_linha_val)
-                        valor_mod = float(st.session_state.valor_val)
+            with st.form("form_revert_status", clear_on_submit=True):
+                st.subheader("Reverter Status para 'Aberto'")
+                num_linha_revert = st.text_input("Nº da linha (índice) para reverter", key="linha_revert")
 
-                        parcelas.iloc[linha_mod, parcelas.columns.get_indexer(["Valor R$", "Dt.Lanç"])] = [valor_mod, data_lanc] 
-                        st.success("Parcela atualizada")
-                        update_csv()
-
-                    except ValueError:
-                        st.error("Digite um valor numérico válido!")
-                else:
-                        st.warning("Preencha todos os campos!")
+                if st.form_submit_button("Confirmar Reversão"):
+                    if num_linha_revert:
+                        try:
+                            line = int(num_linha_revert)
+                            if line not in parcelas.index:
+                                st.error("Linha (índice) inválida.")
+                            else:
+                                parcelas.loc[line, "Valor R$"] = pd.NA
+                                parcelas.loc[line, "Dt.Lanç"] = pd.NA
+                                parcelas.loc[line, "Doc"] = pd.NA
+                                parcelas.loc[line, "Status"] = 'ABERTO'
+                                
+                                update_csv(parcelas)
+                                st.success(f"Status da parcela {line} alterado para ABERTO.")
+                                st.session_state.show_modificar = False
+                                st.rerun()
+                        except ValueError:
+                            st.error("Digite um número de linha válido!")
+                    else:
+                        st.warning("Preencha o número da linha!")
