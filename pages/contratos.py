@@ -33,6 +33,21 @@ def show():
     def toggle(filtro):
         st.session_state[filtro] = not st.session_state[filtro]
 
+    def formatar_duracao(dias):
+        """Converte um número de dias para uma string formatada em anos, tratando o plural."""
+        if pd.isna(dias):
+            return "Não informado"
+        
+        anos = round((int(dias) * 30) / 365)
+        if anos == 0 and int(dias) > 0: # Para durações menores que 6 meses
+            return f"{dias} dias"
+        label = 'ano' if anos == 1 else 'anos'
+        return f"{anos} {label}"
+
+# Aplica a função de formatação na coluna numérica original
+    contratos['Duração'] = pd.to_numeric(contratos['Duração'], errors='coerce')
+    contratos['Duração'] = contratos['Duração'].apply(formatar_duracao)
+
     with col1:
         if st.button("Selecionar Todos", key="btn_sit"):
             toggle("situacao")
@@ -92,8 +107,8 @@ def show():
             toggle("duracao")
         duracao_filt = st.multiselect(
             "Duração do Contrato",
-            options=contratos["Duração"].dropna().unique(),
-            default=contratos["Duração"].dropna().unique() if st.session_state["duracao"] else []
+            options=contratos['Duração'].dropna().unique(),
+            default=contratos['Duração'].dropna().unique() if st.session_state["duracao"] else []
         )
 
     with col8:
@@ -119,7 +134,7 @@ def show():
     if classificacao_filt:
         contratos_filtrado = contratos_filtrado[contratos_filtrado["Classificacao"].isin(classificacao_filt)]
     if duracao_filt:
-        contratos_filtrado = contratos_filtrado[contratos_filtrado["Duração"].isin(duracao_filt)]
+        contratos_filtrado = contratos_filtrado[contratos_filtrado['Duração'].isin(duracao_filt)]
     if qtd_filt:
         contratos_filtrado = contratos_filtrado[contratos_filtrado["Qtd Notas"].isin(qtd_filt)]
 

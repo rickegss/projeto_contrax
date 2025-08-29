@@ -12,9 +12,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_PATH = BASE_DIR / "data" / "raw" / "prestadores_raw.csv"
 df = pd.read_csv(DATA_PATH, encoding="utf-8", sep=";")
 
-from utils.clean import clean, remove_unnamed
+from utils.clean import clean
 clean(df)
-remove_unnamed(df)
 df = df.iloc[1:].reset_index(drop=True)
 
 colunas = ["Situação", "Prestador", "Nr", "Conta", "CC", "Estab", "Classificacao", "CNPJ Prestador", " Valor do Contrato R$ ", "Início", "Término", "Renovação", "Duração"]
@@ -26,12 +25,10 @@ df[["Situação", "Classificacao", "Prestador", "Conta", "CC", "Estab"]] = df[["
 df[" Valor do Contrato R$ "] = df[" Valor do Contrato R$ "].str.replace(".", "").str.replace(",", ".").astype(float)
 for col in ["Início", "Término", "Renovação"]:
     df[col] = pd.to_datetime(df[col], format='%d/%m/%y', errors='coerce')
-df['Duração'] = pd.to_numeric(df['Duração'], errors='coerce')
-df["Duração"] = pd.to_timedelta(df["Duração"], unit="D")
-df["Duração"] = df["Duração"] * 30
+df['Duração'] = df['Duração'].astype(str).str.strip()
+df['Duração'] = pd.to_numeric(df['Duração'].str.extract('(\d+)', expand=False))
+print(df['Duração'])
 df["Qtd Notas"] = pd.to_numeric(df['Qtd Notas'])
-st.write(df)
-print(df.dtypes)
 
 save_path = BASE_DIR / "data" / "processed" / "prestadores.csv"
 df.to_csv(save_path, index=False, encoding="utf-8")

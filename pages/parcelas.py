@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import sys
 from pathlib import Path
+import time
 
 
 def show():
@@ -31,6 +32,7 @@ def show():
     }
     now = pd.Timestamp.now()
     mes_atual = [k for k, v in mes_dict.items() if v == now.month][0]
+    ano_atual = now.year
     data_lanc = now.strftime("%d/%m/%y %H:%M")
 
     def update_csv(df_to_save):
@@ -120,34 +122,40 @@ def show():
         if st.button("Lançar parcela", key="lancar"):
             st.session_state.show_lancar = not st.session_state.show_lancar
 
+        filtr_opc = (parcelas['Mês'].isin(mes_filt)) & (parcelas['Ano'].isin(ano_filt)) & (parcelas['Status'] == 'ABERTO')
+        contratos_lancaveis = parcelas.loc[filtr_opc, 'Contrato'].dropna().unique()
+
+    if len(contratos_lancaveis) > 0:
         if st.session_state.show_lancar:
-            with st.form("form_lancar", clear_on_submit=True):
-                contrato_val_lanc = st.multiselect(
-                    "Contrato:",
-                    options=parcelas["Contrato"].dropna().unique()
-                )
-                valor_val_lanc = st.text_input("Valor R$")
-                doc_val_lanc = st.text_input("Número do documento")
+            with st.form("form_lancar", clear_on_submit=False):
+                    contrato_val_lanc = st.multiselect(
+                        "Contrato:",
+                        options=contratos_lancaveis
+                    )
+                    valor_val_lanc = st.text_input("Valor R$")
+                    doc_val_lanc = st.text_input("Número do documento")
 
-                if st.form_submit_button("Confirmar lançamento"):
-                    if contrato_val_lanc and valor_val_lanc:
-                        try:
-                            valor = float(valor_val_lanc.replace(",", "."))
-                            filtro = (parcelas["Contrato"].isin(contrato_val_lanc)) & (parcelas["Mês"] == mes_atual)
-                            
-                            if parcelas[filtro].empty:
-                                st.error("Nenhuma parcela encontrada para o contrato e mês atual.")
+                    if st.form_submit_button("Confirmar lançamento"):
+                            if contrato_val_lanc and valor_val_lanc:
+                                try:
+                                    valor = float(valor_val_lanc.replace(",", "."))
+                                    filtro = (parcelas["Contrato"].isin(contrato_val_lanc)) & (parcelas["Mês"] == mes_atual) & (parcelas['Ano'] == ano_atual)
+                                    
+                                    if parcelas[filtro].empty:
+                                        st.error("Nenhuma parcela encontrada para o contrato e mês atual.")
+                                    else:
+                                        parcelas.loc[filtro, ["Valor R$", "Dt.Lanç", "Doc", "Status"]] = [valor, data_lanc, doc_val_lanc, "LANÇADO"]
+                                        update_csv(parcelas)
+                                        st.success("Parcela lançada")
+                                        time.sleep(2)
+                                        st.rerun()
+
+                                except ValueError:
+                                    st.error("Digite um valor numérico válido!")
                             else:
-                                parcelas.loc[filtro, ["Valor R$", "Dt.Lanç", "Doc", "Status"]] = [valor, data_lanc, doc_val_lanc, "LANÇADO"]
-                                update_csv(parcelas)
-                                st.success("Parcela lançada")
-                                st.session_state.show_lancar = False
-                                st.rerun()
-
-                        except ValueError:
-                            st.error("Digite um valor numérico válido!")
-                    else:
-                        st.warning("Preencha Contrato e Valor!")
+                                st.warning("Preencha Contrato e Valor!")
+    else:
+        st.error("Não há parcelas abertas para o mês atual")
 
     with col6:
         if "show_modificar" not in st.session_state:
@@ -157,7 +165,7 @@ def show():
             st.session_state.show_modificar = not st.session_state.show_modificar
 
         if st.session_state.show_modificar:
-            with st.form("form_update_lancamento", clear_on_submit=True):
+            with st.form("form_update_lancamento", clear_on_submit=False):
                 st.subheader("Alterar Dados do Lançamento")
                 num_linha_update = st.text_input("Nº da linha (índice) para alterar", key="linha_update")
                 valor_val_mod = st.text_input("Novo Valor R$ (opcional)", key="valor_mod")
@@ -179,7 +187,7 @@ def show():
                                 parcelas.loc[linha_mod, "Dt.Lanç"] = data_lanc
                                 update_csv(parcelas)
                                 st.success(f"Parcela {linha_mod} atualizada.")
-                                st.session_state.show_modificar = False
+                                time.sleep(2)
                                 st.rerun()
                         except ValueError:
                             st.error("Digite um número de linha e/ou valor numérico válido!")
@@ -206,7 +214,7 @@ def show():
                                 
                                 update_csv(parcelas)
                                 st.success(f"Status da parcela {line} alterado para ABERTO.")
-                                st.session_state.show_modificar = False
+                                time.sleep(2)
                                 st.rerun()
                         except ValueError:
                             st.error("Digite um número de linha válido!")

@@ -2,7 +2,7 @@
 import streamlit as st
 import pandas as pd
 from streamlit_autorefresh import st_autorefresh
-from pages import parcelas, contratos
+from pages import parcelas, contratos, dashboard
 
 st.set_page_config(
     page_title="Gestão Contratual",
@@ -25,7 +25,7 @@ with tab2:
     contratos.show()
 
 with tab3:
-    ...
+    dashboard.show()
 
 # Atualiza a página a cada 10 segundos (10000 ms)
 st_autorefresh(interval=10000, key="auto_refresh")
