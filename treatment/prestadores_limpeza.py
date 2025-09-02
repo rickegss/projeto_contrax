@@ -1,4 +1,3 @@
-# streamlit run "C:\Users\ricardo.gomes\Desktop\Python VS\projeto_contratos\treatment\prestadores_limpeza.py"
 import sys
 from pathlib import Path
 import streamlit as st
@@ -16,18 +15,25 @@ from utils.clean import clean
 clean(df)
 df = df.iloc[1:].reset_index(drop=True)
 
+# filtra somente colunas necessárias
 colunas = ["Situação", "Prestador", "Nr", "Conta", "CC", "Estab", "Classificacao", "CNPJ Prestador", " Valor do Contrato R$ ", "Início", "Término", "Renovação", "Duração"]
 df = df[colunas]
 df = df.drop_duplicates()
 df["Qtd Notas"] = 1
 
+# colunas categóricas
 df[["Situação", "Classificacao", "Prestador", "Conta", "CC", "Estab"]] = df[["Situação", "Classificacao", "Prestador", "Conta", "CC", "Estab"]].astype("category")
+
+# coluna monetaria
 df[" Valor do Contrato R$ "] = df[" Valor do Contrato R$ "].str.replace(".", "").str.replace(",", ".").astype(float)
+
+#colunas de data
 for col in ["Início", "Término", "Renovação"]:
     df[col] = pd.to_datetime(df[col], format='%d/%m/%y', errors='coerce')
 df['Duração'] = df['Duração'].astype(str).str.strip()
 df['Duração'] = pd.to_numeric(df['Duração'].str.extract('(\d+)', expand=False))
-print(df['Duração'])
+
+# coluna numerica
 df["Qtd Notas"] = pd.to_numeric(df['Qtd Notas'])
 
 save_path = BASE_DIR / "data" / "processed" / "prestadores.csv"

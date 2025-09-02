@@ -2,13 +2,16 @@ import streamlit as st
 import pandas as pd
 import sys
 from pathlib import Path
+from utils.stamp import mes_atual, ano_atual, data_lanc, mes_dict
 import time
-
 
 def show():
     sys.path.append(str(Path(__file__).resolve().parent.parent))
     BASE_DIR = Path(__file__).resolve().parent.parent
     DATA_PATH = BASE_DIR / "data" / "processed" / "parcelas.csv"
+
+    ano_atual2 = [ano_atual]
+    mes_atual2 = [mes_atual]
 
     st.title("Lançamento de Parcelas")
     st.write("---")
@@ -25,15 +28,7 @@ def show():
 
     col1, col2, col3, col4 = st.columns(4)
 
-    mes_dict = {
-        "jan": 1, "fev": 2, "mar": 3, "abr": 4,
-        "mai": 5, "jun": 6, "jul": 7, "ago": 8,
-        "set": 9, "out": 10, "nov": 11, "dez": 12
-    }
-    now = pd.Timestamp.now()
-    mes_atual = [k for k, v in mes_dict.items() if v == now.month][0]
-    ano_atual = now.year
-    data_lanc = now.strftime("%d/%m/%y %H:%M")
+    mes_atual_nome = mes_dict.get(mes_atual)
 
     def update_csv(df_to_save):
         df_to_save.to_csv(DATA_PATH, index=False)
@@ -52,7 +47,7 @@ def show():
         ano_filt = st.multiselect(
             "Ano",
             options=parcelas["Ano"].dropna().unique(),
-            default=parcelas["Ano"].dropna().unique() if st.session_state["toggle_ano"] else []
+            default=parcelas['Ano'][parcelas['Ano'].isin(ano_atual2)].dropna().unique()
         )
 
     with col2:
@@ -61,7 +56,7 @@ def show():
         mes_filt = st.multiselect(
             "Mês",
             options=parcelas["Mês"].dropna().unique(),
-            default=parcelas["Mês"].dropna().unique() if st.session_state["toggle_mes"] else []
+            default=parcelas['Mês'][parcelas['Mês'].isin(mes_atual2)].dropna().unique()
         )
 
     with col3:
@@ -79,7 +74,7 @@ def show():
         status_filt = st.multiselect(
             "Status",
             options=parcelas["Status"].dropna().unique(),
-            default=parcelas["Status"].dropna().unique() if st.session_state["toggle_status"] else []
+            default=parcelas["Status"][parcelas["Status"].isin(["ABERTO"])].dropna().unique() 
         )
 
     st.write("---")

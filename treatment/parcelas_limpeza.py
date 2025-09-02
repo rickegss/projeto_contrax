@@ -34,8 +34,5 @@ df[cat_cols] = df[cat_cols].astype('category')
 colunas = ["Ano", 'Mês', 'Dt.Lanç', 'Emissão', 'Venc', 'Tipo', 'Contrato', 'Referente', 'Doc', 'Estab', 'Status', 'Valor R$']
 df = df[colunas]
 
-print(df.dtypes)
-
 save_path = BASE_DIR / "data" / "processed" / "parcelas.csv"
 df.to_csv(save_path, index=False, encoding="utf-8")
-print(df.columns.tolist())

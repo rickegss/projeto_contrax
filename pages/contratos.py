@@ -39,8 +39,10 @@ def show():
             return "Não informado"
         
         anos = round((int(dias) * 30) / 365)
+
         if anos == 0 and int(dias) > 0: # Para durações menores que 6 meses
             return f"{dias} dias"
+        
         label = 'ano' if anos == 1 else 'anos'
         return f"{anos} {label}"
 
@@ -51,7 +53,7 @@ def show():
     with col1:
         if st.button("Selecionar Todos", key="btn_sit"):
             toggle("situacao")
-        situacao_filt = st.multiselect(
+        situacao_filtro = st.multiselect(
             "Situação",
             options=contratos["Situação"].dropna().unique(),
             default=contratos["Situação"].dropna().unique() if st.session_state["situacao"] else []
@@ -60,7 +62,7 @@ def show():
     with col2:
         if st.button("Selecionar Todos", key="btn_pre"):
             toggle("prestador")
-        prestador_filt = st.multiselect(
+        prestador_filtro = st.multiselect(
             "Prestador",
             options=contratos["Prestador"].dropna().unique(),
             default=contratos["Prestador"].dropna().unique() if st.session_state["prestador"] else []
@@ -69,7 +71,7 @@ def show():
     with col3:
         if st.button("Selecionar Todos", key="btn_con"):
             toggle("conta")
-        conta_filt = st.multiselect(
+        conta_filtro = st.multiselect(
             "Conta",
             options=contratos["Conta"].dropna().unique(),
             default=contratos["Conta"].dropna().unique() if st.session_state["conta"] else []
@@ -78,7 +80,7 @@ def show():
     with col4:
         if st.button("Selecionar Todos", key="btn_cc"):
             toggle("cc")
-        cc_filt = st.multiselect(
+        cc_filtro = st.multiselect(
             "Centro de Custo",
             options=contratos["CC"].dropna().unique(),
             default=contratos["CC"].dropna().unique() if st.session_state["cc"] else []
@@ -87,7 +89,7 @@ def show():
     with col5:
         if st.button("Selecionar Todos", key="btn_est"):
             toggle("estab")
-        estab_filt = st.multiselect(
+        estab_filtro = st.multiselect(
             "Estabelecimento",
             options=contratos["Estab"].dropna().unique(),
             default=contratos["Estab"].dropna().unique() if st.session_state["estab"] else []
@@ -96,7 +98,7 @@ def show():
     with col6:
         if st.button("Selecionar Todos", key="btn_cla"):
             toggle("classificacao")
-        classificacao_filt = st.multiselect(
+        classificacao_filtro = st.multiselect(
             "Classificação",
             options=contratos["Classificacao"].dropna().unique(),
             default=contratos["Classificacao"].dropna().unique() if st.session_state["classificacao"] else []
@@ -105,7 +107,7 @@ def show():
     with col7:
         if st.button("Selecionar Todos", key="btn_dur"):
             toggle("duracao")
-        duracao_filt = st.multiselect(
+        duracao_filtro = st.multiselect(
             "Duração do Contrato",
             options=contratos['Duração'].dropna().unique(),
             default=contratos['Duração'].dropna().unique() if st.session_state["duracao"] else []
@@ -114,29 +116,29 @@ def show():
     with col8:
         if st.button("Selecionar Todos", key="btn_qtd"):
             toggle("qtd")
-        qtd_filt = st.multiselect(
+        qtd_filtro = st.multiselect(
             "Quantidade de Anexos",
             options=contratos["Qtd Notas"].dropna().unique(),
             default=contratos["Qtd Notas"].dropna().unique() if st.session_state["qtd"] else []
         )
 
     contratos_filtrado = contratos.copy()
-    if situacao_filt:
-        contratos_filtrado = contratos_filtrado[contratos_filtrado["Situação"].isin(situacao_filt)]
-    if prestador_filt:
-        contratos_filtrado = contratos_filtrado[contratos_filtrado["Prestador"].isin(prestador_filt)]
-    if conta_filt:
-        contratos_filtrado = contratos_filtrado[contratos_filtrado["Conta"].isin(conta_filt)]
-    if cc_filt:
-        contratos_filtrado = contratos_filtrado[contratos_filtrado["CC"].isin(cc_filt)]
-    if estab_filt:
-        contratos_filtrado = contratos_filtrado[contratos_filtrado["Estab"].isin(estab_filt)]
-    if classificacao_filt:
-        contratos_filtrado = contratos_filtrado[contratos_filtrado["Classificacao"].isin(classificacao_filt)]
-    if duracao_filt:
-        contratos_filtrado = contratos_filtrado[contratos_filtrado['Duração'].isin(duracao_filt)]
-    if qtd_filt:
-        contratos_filtrado = contratos_filtrado[contratos_filtrado["Qtd Notas"].isin(qtd_filt)]
+    if situacao_filtro:
+        contratos_filtrado = contratos_filtrado[contratos_filtrado["Situação"].isin(situacao_filtro)]
+    if prestador_filtro:
+        contratos_filtrado = contratos_filtrado[contratos_filtrado["Prestador"].isin(prestador_filtro)]
+    if conta_filtro:
+        contratos_filtrado = contratos_filtrado[contratos_filtrado["Conta"].isin(conta_filtro)]
+    if cc_filtro:
+        contratos_filtrado = contratos_filtrado[contratos_filtrado["CC"].isin(cc_filtro)]
+    if estab_filtro:
+        contratos_filtrado = contratos_filtrado[contratos_filtrado["Estab"].isin(estab_filtro)]
+    if classificacao_filtro:
+        contratos_filtrado = contratos_filtrado[contratos_filtrado["Classificacao"].isin(classificacao_filtro)]
+    if duracao_filtro:
+        contratos_filtrado = contratos_filtrado[contratos_filtrado['Duração'].isin(duracao_filtro)]
+    if qtd_filtro:
+        contratos_filtrado = contratos_filtrado[contratos_filtrado["Qtd Notas"].isin(qtd_filtro)]
 
     st.write('---')
     st.header("Contratos")
