@@ -1,13 +1,13 @@
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 from pages import parcelas, contratos, dashboard
-
 import sys
 from pathlib import Path
-st.markdown("""
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
 
+st.markdown("""
     <style>
         [data-testid="stSidebarNav"] {
             display: none;

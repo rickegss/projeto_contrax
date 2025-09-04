@@ -182,7 +182,7 @@ def show():
                                 parcelas.loc[linha_mod, "Dt.Lanç"] = data_lanc
                                 update_csv(parcelas)
                                 st.success(f"Parcela {linha_mod} atualizada.")
-                                time.sleep(2)
+                                time.sleep(1)
                                 st.rerun()
                         except ValueError:
                             st.error("Digite um número de linha e/ou valor numérico válido!")
