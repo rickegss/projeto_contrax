@@ -3,6 +3,7 @@ import pandas as pd
 import sys
 from pathlib import Path
 from utils.stamp import mes_atual, ano_atual, data_lanc, mes_dict
+from utils.pdf_extractor import extract_pdf
 import time
 
 def show():
@@ -122,33 +123,55 @@ def show():
 
     if len(contratos_lancaveis) > 0:
         if st.session_state.show_lancar:
+
+            if "valor_pdf" not in st.session_state:
+                st.session_state.valor_pdf = ""
+            if "doc_pdf" not in st.session_state:
+                st.session_state.doc_pdf = ""
+
             with st.form("form_lancar", clear_on_submit=False):
-                    contrato_val_lanc = st.multiselect(
-                        "Contrato:",
-                        options=contratos_lancaveis
-                    )
-                    valor_val_lanc = st.text_input("Valor R$")
-                    doc_val_lanc = st.text_input("Número do documento")
+                contrato_val_lanc = st.multiselect(
+                    "Contrato:",
+                    options=contratos_lancaveis
+                )
 
-                    if st.form_submit_button("Confirmar lançamento"):
-                            if contrato_val_lanc and valor_val_lanc:
-                                try:
-                                    valor = float(valor_val_lanc.replace(",", "."))
-                                    filtro = (parcelas["Contrato"].isin(contrato_val_lanc)) & (parcelas["Mês"] == mes_atual) & (parcelas['Ano'] == ano_atual)
-                                    
-                                    if parcelas[filtro].empty:
-                                        st.error("Nenhuma parcela encontrada para o contrato e mês atual.")
-                                    else:
-                                        parcelas.loc[filtro, ["Valor R$", "Dt.Lanç", "Doc", "Status"]] = [valor, data_lanc, doc_val_lanc, "LANÇADO"]
-                                        update_csv(parcelas)
-                                        st.success("Parcela lançada")
-                                        time.sleep(2)
-                                        st.rerun()
+                file = st.file_uploader(
+                    "Selecione ou arraste documento fiscal",
+                    type=["pdf"],
+                )
 
-                                except ValueError:
-                                    st.error("Digite um valor numérico válido!")
+                st.warning("Pressione Enter abaixo para preenchimento automático ↓")
+                
+                if file:
+                    info = extract_pdf(file)
+                    st.session_state.valor_pdf = info.get('valor', '')
+                    st.session_state.doc_pdf = info.get('numero', '')
+
+                valor_val_lanc = st.text_input("Valor R$", value=st.session_state.valor_pdf)
+                doc_val_lanc = st.text_input("Número do documento", value=st.session_state.doc_pdf)
+
+                if st.form_submit_button("Confirmar lançamento"):
+                    if contrato_val_lanc and valor_val_lanc:
+                        try:
+                            valor = float(str(valor_val_lanc).replace(",", "."))
+                            filtro = (parcelas["Contrato"].isin(contrato_val_lanc)) & (parcelas["Mês"] == mes_atual) & (parcelas['Ano'] == ano_atual)
+                            
+                            if parcelas[filtro].empty:
+                                st.error("Nenhuma parcela encontrada para o contrato e mês atual.")
                             else:
-                                st.warning("Preencha Contrato e Valor!")
+                                parcelas.loc[filtro, ["Valor R$", "Dt.Lanç", "Doc", "Status"]] = [valor, data_lanc, doc_val_lanc, "LANÇADO"]
+                                update_csv(parcelas)
+                                st.session_state.valor_pdf = ""
+                                st.session_state.doc_pdf = ""
+                                st.success("Parcela lançada")
+                                time.sleep(2)
+                                st.rerun()
+
+                        except (ValueError, TypeError):
+                            st.error("Digite um valor numérico válido!")
+                    else:
+                        st.warning("Preencha Contrato e Valor!")
+
     else:
         st.error("Não há parcelas abertas para o mês atual")
 
@@ -171,7 +194,7 @@ def show():
                         try:
                             linha_mod = int(num_linha_update)
                             if linha_mod not in parcelas.index:
-                                 st.error("Linha (índice) inválida.")
+                                    st.error("Linha (índice) inválida.")
                             else:
                                 if valor_val_mod:
                                     valor = float(valor_val_mod.replace(",", "."))
