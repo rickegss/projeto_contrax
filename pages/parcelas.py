@@ -11,8 +11,7 @@ def show():
     BASE_DIR = Path(__file__).resolve().parent.parent
     DATA_PATH = BASE_DIR / "data" / "processed" / "parcelas.csv"
 
-    ano_atual2 = [ano_atual]
-    mes_atual2 = [mes_atual]
+    mes_find_nome = [mes_atual]
 
     st.title("Lançamento de Parcelas")
     st.write("---")
@@ -27,9 +26,12 @@ def show():
 
     parcelas = st.session_state.parcelas.copy()
 
-    col1, col2, col3, col4 = st.columns(4)
+    if st.session_state.get("submission_success", False):
+        st.session_state.valor_manual = ""
+        st.session_state.doc_manual = ""
+        st.session_state.submission_success = False  
 
-    mes_atual_nome = mes_dict.get(mes_atual)
+    col1, col2, col3, col4 = st.columns(4)
 
     def update_csv(df_to_save):
         df_to_save.to_csv(DATA_PATH, index=False)
@@ -48,7 +50,7 @@ def show():
         ano_filt = st.multiselect(
             "Ano",
             options=parcelas["Ano"].dropna().unique(),
-            default=parcelas['Ano'][parcelas['Ano'].isin(ano_atual2)].dropna().unique()
+            default=[ano_atual]
         )
 
     with col2:
@@ -57,7 +59,7 @@ def show():
         mes_filt = st.multiselect(
             "Mês",
             options=parcelas["Mês"].dropna().unique(),
-            default=parcelas['Mês'][parcelas['Mês'].isin(mes_atual2)].dropna().unique()
+            default=mes_find_nome
         )
 
     with col3:
@@ -65,8 +67,8 @@ def show():
             toggle("contrato")
         contrato_filt = st.multiselect(
             "Contrato",
-            options=parcelas["Contrato"].dropna().unique(),
-            default=parcelas["Contrato"].dropna().unique() if st.session_state["toggle_contrato"] else []
+            options=parcelas["Contrato"].dropna(),
+            default=parcelas["Contrato"].dropna() if st.session_state["toggle_contrato"] else []
         )
 
     with col4:
@@ -75,7 +77,7 @@ def show():
         status_filt = st.multiselect(
             "Status",
             options=parcelas["Status"].dropna().unique(),
-            default=parcelas["Status"][parcelas["Status"].isin(["ABERTO"])].dropna().unique() 
+            default=['ABERTO']
         )
 
     st.write("---")
@@ -92,24 +94,15 @@ def show():
         parcelas_filtrado = parcelas_filtrado[parcelas_filtrado["Status"].isin(status_filt)]
     
     st.dataframe(
-    parcelas_filtrado,
-    column_config={
-        "Emissão": st.column_config.DateColumn(
-            "Emissão", 
-            format="DD/MM/YY"  
-        ),
-         "Venc": st.column_config.DateColumn(
-             "Vencimento",
-             format="DD/MM/YY"
-         ),
-         "Valor R$": st.column_config.NumberColumn(
-             "Valor da Parcela",
-             format='R$ %.2f'
-         )
-    }
-)
+        parcelas_filtrado,
+        column_config={
+            "Emissão": st.column_config.DateColumn("Emissão", format="DD/MM/YY"),
+            "Venc": st.column_config.DateColumn("Vencimento", format="DD/MM/YY"),
+            "Valor R$": st.column_config.NumberColumn("Valor da Parcela", format='R$ %.2f')
+        }
+    )
 
-    col5, col6 = st.columns(2)
+    col5, col6, col7, col8 = st.columns(4)
 
     with col5:
         if "show_lancar" not in st.session_state:
@@ -121,59 +114,69 @@ def show():
         filtr_opc = (parcelas['Mês'].isin(mes_filt)) & (parcelas['Ano'].isin(ano_filt)) & (parcelas['Status'] == 'ABERTO')
         contratos_lancaveis = parcelas.loc[filtr_opc, 'Contrato'].dropna().unique()
 
-    if len(contratos_lancaveis) > 0:
-        if st.session_state.show_lancar:
+        if len(contratos_lancaveis) > 0:
+            if st.session_state.show_lancar:
+                
+                def pdf_callback():
+                    uploaded_file = st.session_state.get("pdf_uploader_key")
+                    if uploaded_file:
+                        info = extract_pdf(uploaded_file)
+                        st.session_state.valor_manual = info.get('valor', '')
+                        st.session_state.doc_manual = info.get('numero', '')
+                    else:
+                        st.session_state.valor_manual = ""
+                        st.session_state.doc_manual = ""
 
-            if "valor_pdf" not in st.session_state:
-                st.session_state.valor_pdf = ""
-            if "doc_pdf" not in st.session_state:
-                st.session_state.doc_pdf = ""
-
-            with st.form("form_lancar", clear_on_submit=False):
-                contrato_val_lanc = st.multiselect(
-                    "Contrato:",
-                    options=contratos_lancaveis
-                )
-
+                st.subheader("1. Anexar Documento (Opcional)")
                 file = st.file_uploader(
                     "Selecione ou arraste documento fiscal",
                     type=["pdf"],
+                    key='pdf_uploader_key',
+                    on_change=pdf_callback
                 )
-
-                st.warning("Pressione Enter abaixo para preenchimento automático ↓")
                 
-                if file:
-                    info = extract_pdf(file)
-                    st.session_state.valor_pdf = info.get('valor', '')
-                    st.session_state.doc_pdf = info.get('numero', '')
+                valor_manual = st.text_input("Valor R$", key="valor_manual")
+                doc_manual = st.text_input("Número do documento", key="doc_manual")
+                st.write("---")
 
-                valor_val_lanc = st.text_input("Valor R$", value=st.session_state.valor_pdf)
-                doc_val_lanc = st.text_input("Número do documento", value=st.session_state.doc_pdf)
+                if file and (not st.session_state.get('valor_manual') or not st.session_state.get('doc_manual')):
+                    st.warning('Não foi possível extrair todos os dados do documento. \nPor favor, preencha manualmente.')
 
-                if st.form_submit_button("Confirmar lançamento"):
-                    if contrato_val_lanc and valor_val_lanc:
-                        try:
-                            valor = float(str(valor_val_lanc).replace(",", "."))
-                            filtro = (parcelas["Contrato"].isin(contrato_val_lanc)) & (parcelas["Mês"] == mes_atual) & (parcelas['Ano'] == ano_atual)
-                            
-                            if parcelas[filtro].empty:
-                                st.error("Nenhuma parcela encontrada para o contrato e mês atual.")
-                            else:
-                                parcelas.loc[filtro, ["Valor R$", "Dt.Lanç", "Doc", "Status"]] = [valor, data_lanc, doc_val_lanc, "LANÇADO"]
-                                update_csv(parcelas)
-                                st.session_state.valor_pdf = ""
-                                st.session_state.doc_pdf = ""
-                                st.success("Parcela lançada")
-                                time.sleep(2)
-                                st.rerun()
+                st.subheader("2. Confirmar Lançamento")
+                with st.form("form_lancar", clear_on_submit=True):
+                    contrato_val_lanc = st.selectbox(
+                        "Selecione o contrato para este lançamento:",
+                        options=contratos_lancaveis
+                    )
 
-                        except (ValueError, TypeError):
-                            st.error("Digite um valor numérico válido!")
-                    else:
-                        st.warning("Preencha Contrato e Valor!")
+                    if st.form_submit_button("Confirmar lançamento"):
+                        valor_a_lancar = st.session_state.get("valor_manual", "")
+                        doc_a_lancar = st.session_state.get("doc_manual", "")
 
-    else:
-        st.error("Não há parcelas abertas para o mês atual")
+                        if contrato_val_lanc and valor_a_lancar:
+                            try:
+                                valor = float(str(valor_a_lancar).replace(",", "."))
+                                filtro = (parcelas["Contrato"] == contrato_val_lanc) & (parcelas["Mês"] == mes_atual) & (parcelas['Ano'] == ano_atual) & (parcelas["Status"] == 'ABERTO')
+                                
+                                if parcelas[filtro].empty:
+                                    st.error("Nenhuma parcela em aberto encontrada para o contrato e período atual.")
+                                else:
+                                    index_to_update = parcelas[filtro].index[0]
+                                    parcelas.loc[index_to_update, ["Valor R$", "Dt.Lanç", "Doc", "Status"]] = [valor, data_lanc, doc_a_lancar, "LANÇADO"]
+                                    update_csv(parcelas)
+                                    
+                                    st.session_state.submission_success = True
+                                    
+                                    st.success("Parcela lançada")
+                                    time.sleep(0.7)
+                                    st.rerun()
+                            except (ValueError, TypeError):
+                                st.error("O valor informado é inválido!")
+                        else:
+                            st.warning("É necessário selecionar um contrato e preencher um valor válido!")
+        else:
+            if st.session_state.get("show_lancar"):
+                st.error("Não há parcelas abertas para o período filtrado.")
 
     with col6:
         if "show_modificar" not in st.session_state:
@@ -183,18 +186,18 @@ def show():
             st.session_state.show_modificar = not st.session_state.show_modificar
 
         if st.session_state.show_modificar:
-            with st.form("form_update_lancamento", clear_on_submit=False):
+            with st.form("form_altera_lancamento", clear_on_submit=True):
                 st.subheader("Alterar Dados do Lançamento")
-                num_linha_update = st.text_input("Nº da linha (índice) para alterar", key="linha_update")
+                num_linha_altera = st.text_input("Nº da linha (índice) para alterar", key="linha_altera")
                 valor_val_mod = st.text_input("Novo Valor R$ (opcional)", key="valor_mod")
                 doc_val_mod = st.text_input("Novo N° Documento (opcional)", key="doc_mod")
                 
                 if st.form_submit_button("Confirmar Alteração"):
-                    if num_linha_update and (valor_val_mod or doc_val_mod):
+                    if num_linha_altera and (valor_val_mod or doc_val_mod):
                         try:
-                            linha_mod = int(num_linha_update)
+                            linha_mod = int(num_linha_altera)
                             if linha_mod not in parcelas.index:
-                                    st.error("Linha (índice) inválida.")
+                                st.error("Linha (índice) inválida.")
                             else:
                                 if valor_val_mod:
                                     valor = float(valor_val_mod.replace(",", "."))
@@ -205,7 +208,7 @@ def show():
                                 parcelas.loc[linha_mod, "Dt.Lanç"] = data_lanc
                                 update_csv(parcelas)
                                 st.success(f"Parcela {linha_mod} atualizada.")
-                                time.sleep(1)
+                                time.sleep(0.7)
                                 st.rerun()
                         except ValueError:
                             st.error("Digite um número de linha e/ou valor numérico válido!")
@@ -213,7 +216,6 @@ def show():
                         st.warning("Preencha a linha e pelo menos um campo para alterar!")
 
             st.write("---")
-
             with st.form("form_revert_status", clear_on_submit=True):
                 st.subheader("Reverter Status para 'Aberto'")
                 num_linha_revert = st.text_input("Nº da linha (índice) para reverter", key="linha_revert")
@@ -225,16 +227,77 @@ def show():
                             if line not in parcelas.index:
                                 st.error("Linha (índice) inválida.")
                             else:
-                                parcelas.loc[line, "Valor R$"] = pd.NA
-                                parcelas.loc[line, "Dt.Lanç"] = pd.NA
-                                parcelas.loc[line, "Doc"] = pd.NA
+                                parcelas.loc[line, ["Valor R$", "Dt.Lanç", "Doc"]] = [pd.NA, pd.NA, pd.NA]
                                 parcelas.loc[line, "Status"] = 'ABERTO'
                                 
                                 update_csv(parcelas)
                                 st.success(f"Status da parcela {line} alterado para ABERTO.")
-                                time.sleep(2)
+                                time.sleep(0.7)
                                 st.rerun()
                         except ValueError:
                             st.error("Digite um número de linha válido!")
                     else:
                         st.warning("Preencha o número da linha!")
+
+    with col7:
+        if "show_duplicar" not in st.session_state:
+            st.session_state.show_duplicar = False
+
+        if st.button('Duplicar linha', key='duplica_parcela'):
+            st.session_state.show_duplicar = not st.session_state.show_duplicar
+        
+        if st.session_state.show_duplicar:
+           filtr_opc_dup = (parcelas['Mês'].isin(mes_find_nome)) & (parcelas['Ano'] == ano_atual) & (parcelas['Status'] == 'ABERTO')
+           contratos_duplicaveis = parcelas.loc[filtr_opc_dup, 'Contrato'].dropna().unique()
+
+           if not contratos_duplicaveis.empty:
+            with st.form('Selecionar contrato para duplicar', clear_on_submit=True):
+                st.subheader('Parcela a duplicar: ')
+                contrato_dup = st.selectbox('Contrato: ', options=contratos_lancaveis)
+                qtd_dup = st.number_input('Adicionar quantos lançamentos?: ', min_value=1, value=1)
+                submitted = st.form_submit_button('Confirmar')
+
+                if submitted and contrato_dup:
+                    df_filt_dup = parcelas[
+                            (parcelas['Contrato'] == contrato_dup) & 
+                            (parcelas['Ano'] == ano_atual) & 
+                            (parcelas['Mês'].isin(mes_find_nome)) &
+                            (parcelas['Status'] == 'ABERTO')
+                        ]
+                    
+                    if not df_filt_dup.empty:
+                        linha_dup = df_filt_dup.iloc[[0]]
+                        novas_linhas = [linha_dup] * qtd_dup
+
+                        parcelas = pd.concat([parcelas] + novas_linhas, ignore_index=True)
+                        update_csv(parcelas)
+                        st.success('Linhas duplicadas!')
+                        time.sleep(0.5)
+                        st.rerun()
+           else:
+                st.warning("Não há contratos abertos no período para duplicar.")
+
+    with col8:
+        if 'show_excluir' not in st.session_state:
+            st.session_state.show_excluir = False
+        
+        if st.button('Excluir Linha', key='excluir'):
+            st.session_state.show_excluir = not st.session_state.show_excluir
+
+        if st.session_state.show_excluir:
+            with st.form('form_excluir', clear_on_submit=True):
+                st.subheader('Excluir parcela')
+                st.text_input('Índice da linha a excluir: ', key='linha_excluir')
+                submitted = st.form_submit_button('Confirmar')
+
+            if submitted:
+                try:
+                    line = int(st.session_state.linha_excluir)
+                    parcelas.drop(line, inplace=True)
+                    update_csv(parcelas)
+                    st.success('Linha excluída!')
+                    time.sleep(0.5)
+                    st.rerun()
+
+                except(ValueError):
+                    st.error('Valor inválido!')

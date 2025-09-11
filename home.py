@@ -36,6 +36,3 @@ with tab2:
 
 with tab3:
     dashboard.show()
-
-# Atualiza a página a cada 10 segundos (10000 ms)
-st_autorefresh(interval=10000, key="auto_refresh")
