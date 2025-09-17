@@ -1,17 +1,14 @@
 import streamlit as st
-import sys
-from pathlib import Path
 import pandas as pd
 import plotly.express as px
 from utils.stamp import mes_dict,ano_atual, mes_atual
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-sys.path.append(str(BASE_DIR))
+from pathlib import Path
 
 def show():
-    DATA_PATH = BASE_DIR / "data" / "processed" / "parcelas.csv"
+    script_dir = Path(__file__).resolve().parent.parent
+    path_csv = script_dir / 'data' / 'processed' / 'parcelas.csv'
 
-    parcelas = pd.read_csv(DATA_PATH)
+    parcelas = pd.read_csv(path_csv)
 
     st.set_page_config(layout="wide") 
     st.title("Dashboard de Contratos")

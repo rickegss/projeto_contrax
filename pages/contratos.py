@@ -1,4 +1,3 @@
-import sys
 import pandas as pd
 import streamlit as st
 from pathlib import Path
@@ -10,21 +9,20 @@ def show():
         layout="wide",
     )
 
-    BASE_DIR = Path(__file__).resolve().parent.parent
-    sys.path.append(str(BASE_DIR))
-    DATA_PATH = BASE_DIR / "data" / "processed" / "prestadores.csv"
+    script_dir = Path(__file__).resolve().parent.parent
+    path_csv = script_dir / 'data' / 'processed' / 'prestadores.csv'
 
     try:
-        contratos = pd.read_csv(DATA_PATH)
+        contratos = pd.read_csv(path_csv)
     except FileNotFoundError:
-        st.error(f"Arquivo de dados não encontrado em: {DATA_PATH}")
+        st.error(f"Arquivo de dados não encontrado em: {path_csv}")
         st.stop()
 
     st.title("Prestadores de Contratos")
     st.write("---")
     st.header("Filtros")
 
-    col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([3, 3, 3, 3, 3, 4, 4, 3])
+    col1, col2, col3, col4, col5, col6, col7 = st.columns([3, 3, 3, 3, 3, 4, 4])
 
     for filtro in ["situacao", "prestador", "conta", "cc", "estab", "classificacao", "duracao", "qtd"]:
         if filtro not in st.session_state:
@@ -113,15 +111,6 @@ def show():
             default=contratos['Duração'].dropna().unique() if st.session_state["duracao"] else []
         )
 
-    with col8:
-        if st.button("Selecionar Todos", key="btn_qtd"):
-            toggle("qtd")
-        qtd_filtro = st.multiselect(
-            "Quantidade de Anexos",
-            options=contratos["Qtd Notas"].dropna().unique(),
-            default=contratos["Qtd Notas"].dropna().unique() if st.session_state["qtd"] else []
-        )
-
     contratos_filtrado = contratos.copy()
     if situacao_filtro:
         contratos_filtrado = contratos_filtrado[contratos_filtrado["Situação"].isin(situacao_filtro)]
@@ -137,8 +126,7 @@ def show():
         contratos_filtrado = contratos_filtrado[contratos_filtrado["Classificacao"].isin(classificacao_filtro)]
     if duracao_filtro:
         contratos_filtrado = contratos_filtrado[contratos_filtrado['Duração'].isin(duracao_filtro)]
-    if qtd_filtro:
-        contratos_filtrado = contratos_filtrado[contratos_filtrado["Qtd Notas"].isin(qtd_filtro)]
+
 
     st.write('---')
     st.header("Contratos")

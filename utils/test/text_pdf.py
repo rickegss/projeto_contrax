@@ -1,6 +1,6 @@
 import pdfplumber
 
-with pdfplumber.open(r'c:\Users\ricardo.gomes\H.Egidio Group\hcompany - Tecnologia\5-CONTRATO ASSINADO\01-NOTA_FISCAL\2025\09-25\INTEGRATTO-071 NF_1969 - 16.09.25.pdf') as nf:
+with pdfplumber.open(r'C:\Users\ricardo.gomes\Desktop\Python VS\projeto_contratos\data\NF_tests\pdf_teste9.pdf') as nf:
     page = nf.pages[0]
     text = page.extract_text(x_tolerance=2)
     print(text)

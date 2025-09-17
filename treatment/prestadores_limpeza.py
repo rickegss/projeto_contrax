@@ -1,15 +1,11 @@
-import sys
-from pathlib import Path
 import streamlit as st
 import pandas as pd
+from pathlib import Path
 
-# adiciona a pasta raiz do projeto no path
-ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT_DIR))
+script_dir = Path(__file__).resolve().parent.parent
+path_csv = script_dir / "data" / "raw" / 'prestadores_raw.csv'
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_PATH = BASE_DIR / "data" / "raw" / "prestadores_raw.csv"
-df = pd.read_csv(DATA_PATH, encoding="utf-8", sep=";")
+df = pd.read_csv(path_csv, encoding="utf-8", sep=";", skiprows=1)
 
 from utils.clean import clean
 clean(df)
@@ -36,5 +32,5 @@ df['Duração'] = pd.to_numeric(df['Duração'].str.extract('(\d+)', expand=Fals
 # coluna numerica
 df["Qtd Notas"] = pd.to_numeric(df['Qtd Notas'])
 
-save_path = BASE_DIR / "data" / "processed" / "prestadores.csv"
+save_path = script_dir / "data" / "processed" / "prestadores.csv"
 df.to_csv(save_path, index=False, encoding="utf-8")
