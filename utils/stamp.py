@@ -1,4 +1,5 @@
 import pandas as pd
+from datetime import datetime
 
 mes_dict = {
     "jan": 1, "fev": 2, "mar": 3, "abr": 4,
@@ -9,4 +10,4 @@ mes_dict = {
 now = pd.Timestamp.now()
 mes_atual = [k for k, v in mes_dict.items() if v == now.month][0]
 ano_atual = now.year
-data_lanc = now.strftime("%d/%m/%y %H:%M")
+data_lanc = datetime.now()
