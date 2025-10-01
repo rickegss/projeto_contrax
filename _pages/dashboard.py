@@ -1,142 +1,172 @@
 import streamlit as st
-import pandas as pd
 import plotly.express as px
-from utils.stamp import mes_dict, ano_atual, mes_atual
-from pathlib import Path
-
-@st.cache_data
-def load_data(path):
-    """Carrega os dados de um arquivo CSV, com tratamento de erro."""
-    try:
-        df = pd.read_csv(path)
-        # Otimizações básicas no carregamento dos dados
-        for col in ['Ano', 'Mês', 'Contrato', 'Estab', 'Status', 'Tipo']:
-            if col in df.columns:
-                df[col] = df[col].astype('category')
-        return df
-    except FileNotFoundError:
-        st.error(f"Arquivo de dados não encontrado no caminho: {path}")
-        return pd.DataFrame()
-
-def show_filters(df):
-    """Exibe os filtros na barra lateral e gerencia o estado das seleções."""
-    st.sidebar.header('Filtros do Dashboard')
-
-    filter_options = {col: df[col].unique().tolist() for col in ['Ano', 'Mês', 'Contrato', 'Estab', 'Status', 'Tipo']}
-
-    if 'selections' not in st.session_state:
-        st.session_state.selections = {
-            'Ano': [ano_atual], 'Mês': [mes_atual], 'Contrato': filter_options['Contrato'],
-            'Estab': filter_options['Estab'], 'Status': ['LANÇADO'], 'Tipo': ['CONTRATO']
-        }
-    
-    def select_all(column): st.session_state.selections[column] = filter_options[column]
-    def clear_selection(column): st.session_state.selections[column] = []
-
-    selections = {}
-    for label, col in {'Ano': 'Ano', 'Mês': 'Mês', 'Contrato': 'Contrato', 'Empresa': 'Estab', 'Status': 'Status', 'Tipo': 'Tipo'}.items():
-        # A seleção do multiselect é diretamente atribuída ao seu valor de estado
-        selections[col] = st.sidebar.multiselect(label, options=filter_options[col], default=st.session_state.selections[col])
-        st.session_state.selections[col] = selections[col] # Atualiza o estado
-        
-        b_col1, b_col2 = st.sidebar.columns(2)
-        b_col1.button("Todos", on_click=select_all, args=(col,), key=f'btn_all_{col}', use_container_width=True)
-        b_col2.button("Limpar", on_click=clear_selection, args=(col,), key=f'btn_clear_{col}', use_container_width=True)
-        
-    return st.session_state.selections
+from utils.stamp import ano_atual, mes_atual
 
 def plot_despesa_mensal(df):
-    df_agrupado = df.groupby('Mês')['Valor R$'].sum().reset_index()
-    df_agrupado['Mes_Num'] = df_agrupado['Mês'].str.lower().map(mes_dict)
-    df_agrupado = df_agrupado.sort_values('Mes_Num')
-    df_agrupado['TextoValor'] = df_agrupado['Valor R$'].apply(lambda x: f'R$ {x:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.'))
-    fig = px.bar(df_agrupado, x='Mês', y='Valor R$', title='Despesas Mensais', labels={"Mês": "Mês", "Valor R$": "Total R$"}, text='TextoValor')
+    df_agrupado = df.groupby(['mes', 'mes_nome'], observed=True)['valor'].sum().reset_index()
+    df_agrupado = df_agrupado.sort_values('mes')
+    df_agrupado['TextoValor'] = df_agrupado['valor'].apply(lambda x: f'R$ {x:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.'))
+    fig = px.bar(df_agrupado, x='mes_nome', y='valor', title='Despesas Mensais', labels={"mes_nome": "Mês", "valor": "Total R$"}, text='TextoValor')
     fig.update_traces(textposition='outside', textangle=0)
     return fig
 
-def plot_total_estabelecimento_bar(df):
-    df_agrupado = df.groupby('Estab')['Valor R$'].sum().reset_index().sort_values('Valor R$')
-    df_agrupado['TextoValor'] = df_agrupado['Valor R$'].apply(lambda x: f'R$ {x:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.'))
-    fig = px.bar(df_agrupado, x='Valor R$', y='Estab', orientation='h', title='Total por Estabelecimento', labels={"Estab": "Estabelecimento", "Valor R$": "Total R$"}, text='TextoValor')
+def plot_total_estabelecimentoelecimento_bar(df):
+    df_agrupado = df.groupby('estabelecimento', observed=True)['valor'].sum().reset_index().sort_values('valor')
+    df_agrupado['TextoValor'] = df_agrupado['valor'].apply(lambda x: f'R$ {x:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.'))
+    fig = px.bar(df_agrupado, x='valor', y='estabelecimento', orientation='h', title='Total por Estabelecimento', labels={"estabelecimento": "Estabelecimento", "valor": "Total R$"}, text='TextoValor')
     return fig
 
-def plot_pizza_estabelecimentos(df):
-    df_agrupado = df.groupby('Estab')['Valor R$'].sum().reset_index()
-    fig = px.pie(df_agrupado, values='Valor R$', names='Estab', title='Distribuição de Gastos', labels={"Estab": "Estabelecimento", "Valor R$": "Total R$"}, color_discrete_sequence=px.colors.sequential.Viridis)
+def plot_pizza_estabelecimentoelecimentos(df):
+    df_agrupado = df.groupby('estabelecimento', observed=True)['valor'].sum().reset_index()
+    fig = px.pie(df_agrupado, values='valor', names='estabelecimento', title='Distribuição de Gastos', labels={"estabelecimento": "Estabelecimento", "valor": "Total R$"}, color_discrete_sequence=px.colors.sequential.Viridis)
     return fig
 
 def plot_top_prestadores(df):
-    df_agrupado = df.groupby('Contrato')['Valor R$'].sum().nlargest(10).sort_values().reset_index()
-    df_agrupado['TextoValor'] = df_agrupado['Valor R$'].apply(lambda x: f'R$ {x:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.'))
-    fig = px.bar(df_agrupado, x='Valor R$', y='Contrato', orientation='h', title='Top 10 Prestadores', labels={"Contrato": "Contrato", "Valor R$": "Total R$"}, text='TextoValor')
+    df_agrupado = df.groupby('contrato', observed=True)['valor'].sum().nlargest(10).sort_values().reset_index()
+    df_agrupado['TextoValor'] = df_agrupado['valor'].apply(lambda x: f'R$ {x:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.'))
+    fig = px.bar(df_agrupado, x='valor', y='contrato', orientation='h', title='Top 10 Prestadores', labels={"contrato": "Prestador", "valor": "Total R$"}, text='TextoValor')
     return fig
 
-def plot_faturamento_hcompany(df, ano_selecionado):
-    df_hcompany = df[(df['Contrato'].str.startswith("HCOMPANY")) & (df['Ano'].isin(ano_selecionado)) & (df['Status'] == 'LANÇADO') != 0]
-    df_agrupado = df_hcompany.groupby('Mês')['Valor R$'].sum().reset_index()
-    df_agrupado['Mes_Num'] = df_agrupado['Mês'].str.lower().map(mes_dict)
-    df_agrupado = df_agrupado.sort_values('Mes_Num')
-    fig = px.line(df_agrupado, x='Mês', y='Valor R$', title='Faturamento HCOMPANY', labels={'Mês': 'Mês', 'Valor R$': 'Total R$'}, markers=True)
+def plot_faturamento_hcompany(df, dash_ano_selecionado):
+    df_hcompany = df[(df['contrato'].str.startswith("HCOMPANY")) & (df['ano'].isin(dash_ano_selecionado)) & (df['status'] == 'LANÇADO') != 0]
+    df_hcompany = df.groupby(['mes', 'mes_nome'], observed=True)['valor'].sum().reset_index()
+    df_hcompany = df_hcompany.sort_values('mes')
+    fig = px.line(df_hcompany, x='mes_nome', y='valor', title='Faturamento HCOMPANY', labels={'mes_nome': 'Mês', 'valor': 'Total R$'}, markers=True)
     return fig
 
+
+def show_filters(df):
+    st.sidebar.header("Filtros")
+
+    ano_filtro = sorted(df["ano"].dropna().unique().tolist())
+    mes_filtro = (df["mes_nome"].dropna().unique().tolist())
+    contrato_filtro = sorted(df["contrato"].dropna().unique().tolist())
+    tipo_filtro = sorted(df["tipo"].dropna().unique().tolist())
+    estabelecimento_filtro = sorted(df["estabelecimento"].dropna().unique().tolist())
+    status_filtro = sorted(df["status"].dropna().unique().tolist())
+
+    if 'dash_ano_selecionado' not in st.session_state:
+        st.session_state.dash_ano_selecionado = [ano_atual]
+    if 'dash_mes_selecionado' not in st.session_state:
+        st.session_state.dash_mes_selecionado = [mes_atual]
+    if 'dash_contrato_selecionado' not in st.session_state:
+        st.session_state.dash_contrato_selecionado = contrato_filtro
+    if 'dash_tipo_selecionado' not in st.session_state:
+        st.session_state.dash_tipo_selecionado = ['CONTRATO']
+    if 'dash_estabelecimento_selecionado' not in st.session_state:
+        st.session_state.dash_estabelecimento_selecionado = estabelecimento_filtro
+    if 'dash_status_selecionado' not in st.session_state:
+        st.session_state.dash_status_selecionado = ['LANÇADO']
+
+    def selecionar_todos(chave_estado, opcoes):
+        st.session_state[chave_estado] = opcoes
+
+    def limpar_selecao(chave_estado):
+        st.session_state[chave_estado] = []
+
+    # --- Renderização dos Filtros na Sidebar ---
+    with st.sidebar.expander("Filtros do Dashboard", expanded=True):
+        st.multiselect("Ano", options=ano_filtro, key='dash_ano_selecionado')
+        b_col1, b_col2 = st.columns(2)
+        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_ano_selecionado', ano_filtro), key='btn_todos_anos', width='stretch')
+        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_ano_selecionado',), key='btn_limpar_anos', width='stretch')
+
+        st.multiselect("Mês", options=mes_filtro, key='dash_mes_selecionado')
+        b_col1, b_col2 = st.columns(2)
+        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_mes_selecionado', mes_filtro), key='btn_todos_meses', width='stretch')
+        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_mes_selecionado',), key='btn_limpar_meses', width='stretch')
+
+        st.multiselect("Contrato", options=contrato_filtro, key='dash_contrato_selecionado')
+        b_col1, b_col2 = st.columns(2)
+        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_contrato_selecionado', contrato_filtro), key='btn_todos_contratos', width='stretch')
+        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_contrato_selecionado',), key='btn_limpar_contratos', width='stretch')
+
+        st.multiselect("Tipo", options=tipo_filtro, key='dash_tipo_selecionado')
+        b_col1, b_col2 = st.columns(2)
+        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_tipo_selecionado', tipo_filtro), key='btn_todos_tipos', width='stretch')
+        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_tipo_selecionado',), key='btn_limpar_tipos', width='stretch')
+        
+        st.multiselect("Estabelecimento", options=estabelecimento_filtro, key='dash_estabelecimento_selecionado')
+        b_col1, b_col2 = st.columns(2)
+        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_estabelecimento_selecionado', estabelecimento_filtro), key='btn_todos_estabelecimentos', width='stretch')
+        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_estabelecimento_selecionado',), key='btn_limpar_estabelecimentos', width='stretch')
+
+        st.multiselect("Status", options=status_filtro, key='dash_status_selecionado')
+        b_col1, b_col2 = st.columns(2)
+        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_status_selecionado', status_filtro), key='btn_todos_status', width='stretch')
+        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_status_selecionado',), key='btn_limpar_status', width='stretch')
 
 def show_dashboard():
+    from _pages.parcelas import load_data
     """
     Função principal que renderiza a página do Dashboard.
-    Esta função será importada e chamada pelo arquivo `home.py`.
     """
-    st.header("Dashboard de Contratos")
 
-    script_dir = Path(__file__).resolve().parent.parent
-    path_csv = script_dir / 'data' / 'processed' / 'parcelas.csv'
-
-    # Cria um arquivo mock se ele não existir
-    if not path_csv.exists():
-        path_csv.parent.mkdir(parents=True, exist_ok=True)
-        mock_data = {
-            'Ano': [ano_atual, ano_atual], 'Mês': [mes_atual, 'janeiro'], 'Contrato': ['HCOMPANY', 'Outro'],
-            'Estab': ['Matriz', 'Filial'], 'Status': ['LANÇADO', 'ABERTO'], 'Tipo': ['CONTRATO', 'CONTRATO'],
-            'Valor R$': [5000, 2500]
-        }
-        pd.DataFrame(mock_data).to_csv(path_csv, index=False)
-
-    parcelas_df = load_data(path_csv)
+    im, ti = st.columns([0.05, 0.95])
+    with im:
+        st.image("https://cdn-icons-png.flaticon.com/512/4573/4573150.png", width=75)
+    with ti:
+        st.title("Dashboard")
+    st.divider()
+    parcelas_df = load_data("parcelas")
     if parcelas_df.empty:
         st.warning("Não foi possível carregar os dados. O dashboard não pode ser exibido.")
-        return # Use 'return' em vez de 'st.stop()' para não interromper o app inteiro
+        return
 
-    selections = show_filters(parcelas_df)
+    show_filters(parcelas_df)
+    df_filtrado = parcelas_df[
+        (parcelas_df["ano"].isin(st.session_state.dash_ano_selecionado)) &
+        (parcelas_df["mes_nome"].isin(st.session_state.dash_mes_selecionado)) &
+        (parcelas_df["contrato"].isin(st.session_state.dash_contrato_selecionado)) &
+        (parcelas_df["tipo"].isin(st.session_state.dash_tipo_selecionado)) &
+        (parcelas_df["estabelecimento"].isin(st.session_state.dash_estabelecimento_selecionado)) &
+        (parcelas_df["status"].isin(st.session_state.dash_status_selecionado))
+    ]
 
-    # --- Lógica de Filtragem ---
-    df_filtrado = parcelas_df.copy()
-    df_mensal = parcelas_df.copy()
-    for column, selected_values in selections.items():
-        if selected_values:
-            df_filtrado = df_filtrado[df_filtrado[column].isin(selected_values)]
-            if column != 'Mês':
-                df_mensal = df_mensal[df_mensal[column].isin(selected_values)]
-    
+    df_mensal = parcelas_df[
+        (parcelas_df["ano"].isin(st.session_state.dash_ano_selecionado)) &
+        (parcelas_df["contrato"].isin(st.session_state.dash_contrato_selecionado)) &
+        (parcelas_df["tipo"].isin(st.session_state.dash_tipo_selecionado)) &
+        (parcelas_df["estabelecimento"].isin(st.session_state.dash_estabelecimento_selecionado)) &
+        (parcelas_df["status"].isin(st.session_state.dash_status_selecionado))
+    ]
+
     # --- Layout da Página ---
     main_col, side_col = st.columns([2.5, 1.7])
     with main_col:
         with st.container(border=True):
-            fig_despesa = plot_despesa_mensal(df_mensal)
-            st.plotly_chart(fig_despesa, use_container_width=True)
+            if not df_mensal.empty:
+                fig_despesa = plot_despesa_mensal(df_mensal)
+                st.plotly_chart(fig_despesa, width='stretch')
+            else:
+                st.info("Nenhum dado de despesa mensal para exibir com os filtros atuais.")
+        
         st.divider()
-        sub_col1, sub_col2 = st.columns(2)
-        with sub_col1, st.container(border=True):
-            fig_bar_estab = plot_total_estabelecimento_bar(df_filtrado)
-            st.plotly_chart(fig_bar_estab, use_container_width=True)
-        with sub_col2, st.container(border=True):
-            fig_pie_estab = plot_pizza_estabelecimentos(df_filtrado)
-            st.plotly_chart(fig_pie_estab, use_container_width=True)
+
+        if not df_filtrado.empty:
+            sub_col1, sub_col2 = st.columns(2)
+            with sub_col1, st.container(border=True):
+                fig_bar_estabelecimento = plot_total_estabelecimentoelecimento_bar(df_filtrado)
+                st.plotly_chart(fig_bar_estabelecimento, width='stretch')
+            with sub_col2, st.container(border=True):
+                fig_pie_estabelecimento = plot_pizza_estabelecimentoelecimentos(df_filtrado)
+                st.plotly_chart(fig_pie_estabelecimento, width='stretch')
+        else:
+             st.info("Nenhum dado de estabelecimento para exibir com os filtros atuais.")
 
     with side_col:
         with st.container(border=True):
-            fig_top_prest = plot_top_prestadores(df_filtrado)
-            fig_top_prest.update_layout(height=450)
-            st.plotly_chart(fig_top_prest, use_container_width=True)
+            if not df_filtrado.empty:
+                fig_top_prest = plot_top_prestadores(df_filtrado)
+                fig_top_prest.update_layout(height=450)
+                st.plotly_chart(fig_top_prest, width='stretch')
+            else:
+                st.info("Nenhum dado para o Top 10 Prestadores com os filtros atuais.")
+
         st.divider()
         with st.container(border=True):
-            fig_fat_hcompany = plot_faturamento_hcompany(parcelas_df, selections['Ano'])
-            st.plotly_chart(fig_fat_hcompany, use_container_width=True)
+            fig_fat_hcompany = plot_faturamento_hcompany(parcelas_df, st.session_state.dash_ano_selecionado)
+            st.plotly_chart(fig_fat_hcompany, width='stretch')
+
+if __name__ == "__main__":
+    show_dashboard()

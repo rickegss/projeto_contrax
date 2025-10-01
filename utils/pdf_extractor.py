@@ -3,24 +3,29 @@ import streamlit as st
 import re
 
 def _formatar_valor(valor_str):
-    """Converte uma string de valor monetário para float."""
-    if not valor_str:
+    """
+    Converte uma string de valor monetário para float 
+    """
+    if not isinstance(valor_str, str) or not valor_str.strip():
         return None
+
     try:
-        # Lida com formatos como "1.234,56" e "1,234.56"
-        valor_limpo = valor_str.strip()
-        if ',' in valor_limpo and '.' in valor_limpo:
-            if valor_limpo.rfind('.') > valor_limpo.rfind(','):
-                # Formato americano: 1,234.56 -> remove vírgulas
-                valor_limpo = valor_limpo.replace(',', '')
-            else:
-                # Formato brasileiro: 1.234,56 -> remove pontos, troca vírgula
-                valor_limpo = valor_limpo.replace('.', '').replace(',', '.')
+        valor_limpo = valor_str.strip().upper().replace("R$", "").strip()
+        
+        last_dot_pos = valor_limpo.rfind('.')
+        last_comma_pos = valor_limpo.rfind(',')
+
+        if last_comma_pos > last_dot_pos:
+            valor_final_str = valor_limpo.replace('.', '').replace(',', '.')
+
+        elif last_dot_pos > last_comma_pos:
+            valor_final_str = valor_limpo.replace(',', '')
+
         else:
-            # Formato 1234,56
-            valor_limpo = valor_limpo.replace(',', '.')
-            
-        return float(valor_limpo)
+            valor_final_str = valor_limpo.replace(',', '.')
+
+        return float(valor_final_str)
+
     except (ValueError, TypeError):
         return None
 
@@ -235,12 +240,11 @@ def _parse_fallback(text, lines):
         if match_valor:
             valor_str = match_valor.group(match_valor.lastindex)
             
-            try:
-                valor_limpo = valor_str.replace('.', '').replace(',', '.')
-                info['valor'] = float(valor_limpo)
+            valor_formatado = _formatar_valor(valor_str)
+            
+            if valor_formatado is not None:
+                info['valor'] = valor_formatado
                 break
-            except (ValueError, AttributeError):
-                continue
 
     # Retorna apenas se encontrou algo, mesmo que parcial
     return info if any(info.values()) else None
@@ -295,6 +299,8 @@ def extract_pdf(file):
                  if fallback_result:
                      info.update({k: v for k, v in fallback_result.items() if v is not None})
 
+            info['numero'] = int(info['numero'])
+            info['valor'] = float(info['valor'])
             return info
 
     except Exception as e:

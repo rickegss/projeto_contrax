@@ -1,5 +1,11 @@
 import streamlit as st
-from _pages.home import main
+from _pages.parcelas import main
+
+st.set_page_config(
+        page_title="Gestão Contratual",
+        page_icon="https://images.vexels.com/media/users/3/137610/isolated/preview/f41aac24df7e7778180e33ab75c69d88-flat-geometric-abstract-logo.png",
+        layout="centered",
+    )
 
 # --- FUNÇÃO DE LOGIN ---
 def check_password():
@@ -18,8 +24,11 @@ def check_password():
             return False
 
     st.title("Login")
+    st.divider()
+    st.subheader('Preencha suas credenciais:')
     st.text_input("Nome de Usuário", key="username").strip()
     st.text_input("Senha", type="password", key="password").strip()
+    st.divider()
 
     if st.button("Entrar"):
         if password_entered():
