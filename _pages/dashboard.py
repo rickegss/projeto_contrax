@@ -68,33 +68,33 @@ def show_filters(df):
     with st.sidebar.expander("Filtros do Dashboard", expanded=True):
         st.multiselect("Ano", options=ano_filtro, key='dash_ano_selecionado')
         b_col1, b_col2 = st.columns(2)
-        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_ano_selecionado', ano_filtro), key='btn_todos_anos', width='stretch')
-        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_ano_selecionado',), key='btn_limpar_anos', width='stretch')
+        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_ano_selecionado', ano_filtro), key='btn_todos_anos', use_container_width=True)
+        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_ano_selecionado',), key='btn_limpar_anos', use_container_width=True)
 
         st.multiselect("Mês", options=mes_filtro, key='dash_mes_selecionado')
         b_col1, b_col2 = st.columns(2)
-        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_mes_selecionado', mes_filtro), key='btn_todos_meses', width='stretch')
-        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_mes_selecionado',), key='btn_limpar_meses', width='stretch')
+        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_mes_selecionado', mes_filtro), key='btn_todos_meses', use_container_width=True)
+        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_mes_selecionado',), key='btn_limpar_meses', use_container_width=True)
 
         st.multiselect("Contrato", options=contrato_filtro, key='dash_contrato_selecionado')
         b_col1, b_col2 = st.columns(2)
-        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_contrato_selecionado', contrato_filtro), key='btn_todos_contratos', width='stretch')
-        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_contrato_selecionado',), key='btn_limpar_contratos', width='stretch')
+        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_contrato_selecionado', contrato_filtro), key='btn_todos_contratos', use_container_width=True)
+        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_contrato_selecionado',), key='btn_limpar_contratos', use_container_width=True)
 
         st.multiselect("Tipo", options=tipo_filtro, key='dash_tipo_selecionado')
         b_col1, b_col2 = st.columns(2)
-        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_tipo_selecionado', tipo_filtro), key='btn_todos_tipos', width='stretch')
-        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_tipo_selecionado',), key='btn_limpar_tipos', width='stretch')
+        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_tipo_selecionado', tipo_filtro), key='btn_todos_tipos', use_container_width=True)
+        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_tipo_selecionado',), key='btn_limpar_tipos', use_container_width=True)
         
         st.multiselect("Estabelecimento", options=estabelecimento_filtro, key='dash_estabelecimento_selecionado')
         b_col1, b_col2 = st.columns(2)
-        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_estabelecimento_selecionado', estabelecimento_filtro), key='btn_todos_estabelecimentos', width='stretch')
-        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_estabelecimento_selecionado',), key='btn_limpar_estabelecimentos', width='stretch')
+        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_estabelecimento_selecionado', estabelecimento_filtro), key='btn_todos_estabelecimentos', use_container_width=True)
+        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_estabelecimento_selecionado',), key='btn_limpar_estabelecimentos', use_container_width=True)
 
         st.multiselect("Status", options=status_filtro, key='dash_status_selecionado')
         b_col1, b_col2 = st.columns(2)
-        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_status_selecionado', status_filtro), key='btn_todos_status', width='stretch')
-        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_status_selecionado',), key='btn_limpar_status', width='stretch')
+        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_status_selecionado', status_filtro), key='btn_todos_status', use_container_width=True)
+        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_status_selecionado',), key='btn_limpar_status', use_container_width=True)
 
 def show_dashboard():
     from _pages.parcelas import load_data
@@ -137,7 +137,7 @@ def show_dashboard():
         with st.container(border=True):
             if not df_mensal.empty:
                 fig_despesa = plot_despesa_mensal(df_mensal)
-                st.plotly_chart(fig_despesa, width='stretch')
+                st.plotly_chart(fig_despesa, use_container_width=True)
             else:
                 st.info("Nenhum dado de despesa mensal para exibir com os filtros atuais.")
         
@@ -147,10 +147,10 @@ def show_dashboard():
             sub_col1, sub_col2 = st.columns(2)
             with sub_col1, st.container(border=True):
                 fig_bar_estabelecimento = plot_total_estabelecimentoelecimento_bar(df_filtrado)
-                st.plotly_chart(fig_bar_estabelecimento, width='stretch')
+                st.plotly_chart(fig_bar_estabelecimento, use_container_width=True)
             with sub_col2, st.container(border=True):
                 fig_pie_estabelecimento = plot_pizza_estabelecimentoelecimentos(df_filtrado)
-                st.plotly_chart(fig_pie_estabelecimento, width='stretch')
+                st.plotly_chart(fig_pie_estabelecimento, use_container_width=True)
         else:
              st.info("Nenhum dado de estabelecimento para exibir com os filtros atuais.")
 
@@ -159,14 +159,14 @@ def show_dashboard():
             if not df_filtrado.empty:
                 fig_top_prest = plot_top_prestadores(df_filtrado)
                 fig_top_prest.update_layout(height=450)
-                st.plotly_chart(fig_top_prest, width='stretch')
+                st.plotly_chart(fig_top_prest, use_container_width=True)
             else:
                 st.info("Nenhum dado para o Top 10 Prestadores com os filtros atuais.")
 
         st.divider()
         with st.container(border=True):
             fig_fat_hcompany = plot_faturamento_hcompany(parcelas_df, st.session_state.dash_ano_selecionado)
-            st.plotly_chart(fig_fat_hcompany, width='stretch')
+            st.plotly_chart(fig_fat_hcompany, use_container_width=True)
 
 if __name__ == "__main__":
     show_dashboard()

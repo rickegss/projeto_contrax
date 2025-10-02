@@ -126,7 +126,7 @@ def contratos():
                         batch_parcelas = []
                         new_id = response.data[0]["id"]
 
-                        for i in range(duracao_delta.months):
+                        for i in range(duracao):
                             data_parcela = data_inicio + relativedelta(months=i)
 
                             batch_parcelas.append({
@@ -142,7 +142,7 @@ def contratos():
                                 "estabelecimento": estabelecimento,
                                 "status": "ABERTO",
                                 "valor": valor_parcela,})
-                            print(f"parcela {i} adicionada")
+                            print(f"{contrato} - parcela {i+1} adicionada")
 
                         supabase.table("parcelas").insert(batch_parcelas).execute()
 
@@ -220,7 +220,7 @@ def contratos():
 
     def show():
         st.set_page_config(
-            page_title="Gestão Contratual",
+            page_title="ContraX",
             layout="wide",
         )
         

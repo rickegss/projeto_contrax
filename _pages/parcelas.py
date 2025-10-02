@@ -39,7 +39,7 @@ def load_data(table_name):
 
 def home():
     st.set_page_config(
-    page_title="Gestão Contratual",
+    page_title="ContraX",
     page_icon="https://images.vexels.com/media/users/3/137610/isolated/preview/f41aac24df7e7778180e33ab75c69d88-flat-geometric-abstract-logo.png",
     layout="wide",
     )
@@ -71,8 +71,8 @@ def home():
             st.session_state.home_contrato_selecionado = contratos_disponiveis
         if 'home_status_selecionado' not in st.session_state:
             st.session_state.home_status_selecionado = ['ABERTO']
-        if "home_situacao_disponiveis" not in st.session_state:
-            st.session_state.home_situacao_disponiveis = ['ATIVO']
+        if "home_situacao_selecionado" not in st.session_state:
+            st.session_state.home_situacao_selecionado = ['ATIVO']
 
         # Funções de callback para os botões "Todos" e "Limpar"
         def selecionar_todos(chave_estado, opcoes):
@@ -124,7 +124,7 @@ def home():
         (df["status"].isin(st.session_state.home_status_selecionado))
     ]
 
-    df_show = df_filter.drop(columns=["data_lancamento", 'documento', "mes_nome", "situacao"]) if "ABERTO" in st.session_state.home_status_selecionado else df_filter.drop(columns=["mes_nome"])
+    df_show = df_filter.drop(columns=["data_lancamento", 'documento', "mes_nome", "situacao", "contrato_id"]) if "ABERTO" in st.session_state.home_status_selecionado else df_filter.drop(columns=["mes_nome"])
 
     st.dataframe(df_show, column_config={
         "id": st.column_config.TextColumn("ID", width="small"),
