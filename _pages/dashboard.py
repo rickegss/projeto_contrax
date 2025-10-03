@@ -28,10 +28,23 @@ def plot_top_prestadores(df):
     return fig
 
 def plot_faturamento_hcompany(df, dash_ano_selecionado):
-    df_hcompany = df[(df['contrato'].str.startswith("HCOMPANY")) & (df['ano'].isin(dash_ano_selecionado)) & (df['status'] == 'LANÇADO')]
-    df_hcompany = df.groupby(['mes', 'mes_nome'], observed=True)['valor'].sum().reset_index()
-    df_hcompany = df_hcompany.sort_values('mes')
-    fig = px.line(df_hcompany, x='mes_nome', y='valor', title='Faturamento HCOMPANY', labels={'mes_nome': 'Mês', 'valor': 'Total R$'}, markers=True)
+    df_hcompany = df[
+        (df['contrato'].str.startswith("HCOMPANY")) &
+        (df['ano'].isin(dash_ano_selecionado)) &
+        (df['status'] == 'LANÇADO')
+    ]
+
+    df_agrupado = df_hcompany.groupby(['mes', 'mes_nome'], observed=True)['valor'].sum().reset_index()
+    df_agrupado = df_agrupado.sort_values('mes')
+    
+    fig = px.line(
+        df_agrupado, 
+        x='mes_nome', 
+        y='valor', 
+        title='Faturamento HCOMPANY', 
+        labels={'mes_nome': 'Mês', 'valor': 'Total R$'}, 
+        markers=True
+    )
     return fig
 
 
