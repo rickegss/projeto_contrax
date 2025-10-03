@@ -223,7 +223,7 @@ def home():
                 st.subheader("Alterar Lançamento")
                 id_alt = st.text_input("ID da parcela")
                 novo_valor = st.number_input("Novo Valor R$ (opcional)", value=None, format="%.2f", placeholder="Deixe em branco para não alterar", step=1.0, min_value=0.01)
-                novo_doc = st.text_input("Novo N° Documento (opcional)")
+                novo_doc = st.text_input("Novo N° Documento (opcional)", value=None, placeholder="Deixe em branco para não alterar")
 
                 if st.form_submit_button("Confirmar Alteração"):
                     if not id_alt or (novo_valor is None and not novo_doc):
@@ -244,7 +244,7 @@ def home():
                             st.warning("Nenhum dado válido fornecido para a atualização.")
         with col_rev:
             with st.form("form_reverter", clear_on_submit=True):
-                st.subheader("Reverter Status para 'Aberto'")
+                st.subheader("Desfazer Lançamento")
                 id_rev = st.text_input("ID da parcela a desfazer o lançamento")
 
                 if st.form_submit_button("Confirmar Reversão"):
