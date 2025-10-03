@@ -5,25 +5,25 @@ from utils.stamp import ano_atual, mes_atual
 def plot_despesa_mensal(df):
     df_agrupado = df.groupby(['mes', 'mes_nome'], observed=True)['valor'].sum().reset_index()
     df_agrupado = df_agrupado.sort_values('mes')
-    df_agrupado['TextoValor'] = df_agrupado['valor'].apply(lambda x: f'R$ {x:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.'))
+    df_agrupado['TextoValor'] = df_agrupado['valor'].apply(formata_moeda)
     fig = px.bar(df_agrupado, x='mes_nome', y='valor', title='Despesas Mensais', labels={"mes_nome": "Mês", "valor": "Total R$"}, text='TextoValor')
     fig.update_traces(textposition='outside', textangle=0)
     return fig
 
-def plot_total_estabelecimentoelecimento_bar(df):
+def plot_total_estabelecimento_bar(df):
     df_agrupado = df.groupby('estabelecimento', observed=True)['valor'].sum().reset_index().sort_values('valor')
-    df_agrupado['TextoValor'] = df_agrupado['valor'].apply(lambda x: f'R$ {x:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.'))
+    df_agrupado['TextoValor'] = df_agrupado['valor'].apply(formata_moeda)
     fig = px.bar(df_agrupado, x='valor', y='estabelecimento', orientation='h', title='Total por Estabelecimento', labels={"estabelecimento": "Estabelecimento", "valor": "Total R$"}, text='TextoValor')
     return fig
 
-def plot_pizza_estabelecimentoelecimentos(df):
+def plot_pizza_estabelecimentos(df):
     df_agrupado = df.groupby('estabelecimento', observed=True)['valor'].sum().reset_index()
     fig = px.pie(df_agrupado, values='valor', names='estabelecimento', title='Distribuição de Gastos', labels={"estabelecimento": "Estabelecimento", "valor": "Total R$"}, color_discrete_sequence=px.colors.sequential.Viridis)
     return fig
 
 def plot_top_prestadores(df):
     df_agrupado = df.groupby('contrato', observed=True)['valor'].sum().nlargest(10).sort_values().reset_index()
-    df_agrupado['TextoValor'] = df_agrupado['valor'].apply(lambda x: f'R$ {x:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.'))
+    df_agrupado['TextoValor'] = df_agrupado['valor'].apply(formata_moeda)
     fig = px.bar(df_agrupado, x='valor', y='contrato', orientation='h', title='Top 10 Prestadores', labels={"contrato": "Prestador", "valor": "Total R$"}, text='TextoValor')
     return fig
 
@@ -47,6 +47,8 @@ def plot_faturamento_hcompany(df, dash_ano_selecionado):
     )
     return fig
 
+def formata_moeda(valor):
+    return f'R$ {valor:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
 
 def show_filters(df):
     st.sidebar.header("Filtros")
@@ -159,10 +161,10 @@ def show_dashboard():
         if not df_filtrado.empty:
             sub_col1, sub_col2 = st.columns(2)
             with sub_col1, st.container(border=True):
-                fig_bar_estabelecimento = plot_total_estabelecimentoelecimento_bar(df_filtrado)
+                fig_bar_estabelecimento = plot_total_estabelecimento_bar(df_filtrado)
                 st.plotly_chart(fig_bar_estabelecimento, use_container_width=True)
             with sub_col2, st.container(border=True):
-                fig_pie_estabelecimento = plot_pizza_estabelecimentoelecimentos(df_filtrado)
+                fig_pie_estabelecimento = plot_pizza_estabelecimentos(df_filtrado)
                 st.plotly_chart(fig_pie_estabelecimento, use_container_width=True)
         else:
              st.info("Nenhum dado de estabelecimento para exibir com os filtros atuais.")
