@@ -28,7 +28,7 @@ def plot_top_prestadores(df):
     return fig
 
 def plot_faturamento_hcompany(df, dash_ano_selecionado):
-    df_hcompany = df[(df['contrato'].str.startswith("HCOMPANY")) & (df['ano'].isin(dash_ano_selecionado)) & (df['status'] == 'LANÇADO') != 0]
+    df_hcompany = df[(df['contrato'].str.startswith("HCOMPANY")) & (df['ano'].isin(dash_ano_selecionado)) & (df['status'] == 'LANÇADO')]
     df_hcompany = df.groupby(['mes', 'mes_nome'], observed=True)['valor'].sum().reset_index()
     df_hcompany = df_hcompany.sort_values('mes')
     fig = px.line(df_hcompany, x='mes_nome', y='valor', title='Faturamento HCOMPANY', labels={'mes_nome': 'Mês', 'valor': 'Total R$'}, markers=True)
@@ -165,7 +165,7 @@ def show_dashboard():
 
         st.divider()
         with st.container(border=True):
-            fig_fat_hcompany = plot_faturamento_hcompany(parcelas_df, st.session_state.dash_ano_selecionado)
+            fig_fat_hcompany = plot_faturamento_hcompany(df_mensal, st.session_state.dash_ano_selecionado)
             st.plotly_chart(fig_fat_hcompany, use_container_width=True)
 
 if __name__ == "__main__":
