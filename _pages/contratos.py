@@ -204,6 +204,13 @@ def contratos():
                         except Exception as e:
                             st.error(f"Erro ao ativar contrato: {e}")
 
+
+    def renovar_contrato():
+        pass
+
+    def editar_contrato():
+        pass
+    
     
     def tabs_show():
         contratos = load_data("contratos")
