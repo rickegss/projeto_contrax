@@ -175,35 +175,51 @@ def contratos():
 
 
     def active_deactive_contract(df):
-        coll3, = st.columns(1)
+            coll3, = st.columns(1)
 
-        with coll3:
-            st.subheader("Ativar/Desativar Contrato")
-            
-            with st.form("form_ativar_desativar_contrato", clear_on_submit=True):
-                contrato_act = st.selectbox("Contrato a ativar/desativar: ", options=df["contrato"].dropna().unique())
-                if not df[(df["contrato"] == contrato_act) & (df["situacao"] == "ATIVO")].empty:
-                    if st.form_submit_button("Desativar Contrato", type="primary"):
-                        try:
-                            supabase.table("contratos").update({"situacao": "INATIVO"}).eq("contrato", contrato_act).execute()
-                            supabase.table("parcelas").update({"situacao": "INATIVO"}).eq("contrato", contrato_act).execute()
-                            st.success("Contrato desativado com sucesso!")
-                            st.cache_data.clear()
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao desativar contrato: {e}")
+            with coll3:
+                st.subheader("Ativar/Desativar Contrato")
 
-                elif not df[(df["contrato"] == contrato_act) & (df["situacao"] == "INATIVO")].empty:
-                    if st.form_submit_button("Ativar Contrato", type="primary"):
-                        try:
-                            supabase.table("contratos").update({"situacao": "ATIVO"}).eq("contrato", contrato_act).execute()
-                            supabase.table("parcelas").update({"situacao": "ATIVO"}).eq("contrato", contrato_act).execute()
-                            st.success("Contrato ativado com sucesso!")
-                            st.cache_data.clear()
-                            st.rerun()     
-                        except Exception as e:
-                            st.error(f"Erro ao ativar contrato: {e}")
+                opcoes_contrato = df["contrato"].dropna().unique()
+                if not any(opcoes_contrato):
+                    st.warning("Nenhum contrato para ativar ou desativar.")
+                    return
 
+                contrato_selecionado = st.selectbox(
+                    "Selecione o Contrato:",
+                    options=opcoes_contrato,
+                    key="sb_contrato_status"  
+                )
+
+                if contrato_selecionado:
+                    contrato_info = df[df["contrato"] == contrato_selecionado]
+                    
+                    if not contrato_info.empty:
+                        status_atual = contrato_info.iloc[0]["situacao"]
+
+                        if status_atual == "ATIVO":
+                            with st.form("form_desativar_contrato"):
+                                if st.form_submit_button("Desativar Contrato", type="primary"):
+                                    try:
+                                        supabase.table("contratos").update({"situacao": "INATIVO"}).eq("contrato", contrato_selecionado).execute()
+                                        supabase.table("parcelas").update({"situacao": "INATIVO"}).eq("contrato", contrato_selecionado).execute()
+                                        st.success("Contrato desativado com sucesso!")
+                                        st.cache_data.clear()
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Erro ao desativar contrato: {e}")
+
+                        elif status_atual == "INATIVO":
+                            with st.form("form_ativar_contrato"):
+                                if st.form_submit_button("Ativar Contrato", type="primary"):
+                                    try:
+                                        supabase.table("contratos").update({"situacao": "ATIVO"}).eq("contrato", contrato_selecionado).execute()
+                                        supabase.table("parcelas").update({"situacao": "ATIVO"}).eq("contrato", contrato_selecionado).execute()
+                                        st.success("Contrato ativado com sucesso!")
+                                        st.cache_data.clear()
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Erro ao ativar contrato: {e}")
 
     def renovar_contrato():
         pass

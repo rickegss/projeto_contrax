@@ -170,24 +170,17 @@ def home():
             valor_extraido_str, doc_extraido = "", ""
             if uploaded_file:
                 info = extract_pdf(uploaded_file)
-                valor_extraido_str = str(info.get('valor', ''))
-                doc_extraido = str(info.get('numero', ''))
-                if not valor_extraido_str or not doc_extraido:
-                    st.info('Não foi possível extrair todos os dados do PDF. Preencha manualmente.')
+                valor_extraido = info.get('valor', '')
+                doc_extraido = info.get('numero', '')
+                if not valor_extraido or not doc_extraido:
+                    st.info('Não foi possível extrair todos os dados do PDF. Complete manualmente.')
 
-            valor_inicial_input = None
-            if valor_extraido_str:  
-                try:
-                    valor_limpo = valor_extraido_str.replace('.', '').replace(',', '.')
-                    valor_inicial_input = float(valor_limpo)
-                except (ValueError, TypeError):
-                    valor_inicial_input = None
 
             with st.form("form_lancar", clear_on_submit=True):
                 st.subheader("2. Confirmar Lançamento")
 
                 contrato_lanc = st.selectbox("Contrato para Lançamento:", options=list(options_box.keys()))
-                valor_lanc = st.number_input("Valor R$", value=valor_inicial_input, placeholder="Ex: 1234,56", format="%.2f", step=1.0, min_value=0.01)
+                valor_lanc = st.number_input("Valor R$", value=valor_extraido, placeholder="Ex: 1234,56", format="%.2f", step=1.0, min_value=0.01)
                 doc_lanc = st.text_input("Número do Documento", value=doc_extraido)
                 
                 if st.form_submit_button("Confirmar Lançamento"):
