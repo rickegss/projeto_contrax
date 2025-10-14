@@ -180,7 +180,7 @@ def home():
                 st.subheader("2. Confirmar Lançamento")
 
                 contrato_lanc = st.selectbox("Contrato para Lançamento:", options=list(options_box.keys()))
-                valor_lanc = st.number_input("Valor R$", value=valor_extraido, placeholder="Ex: 1234,56", format="%.2f", step=1.0, min_value=0.01)
+                valor_lanc = st.number_input("Valor R$", value=None, placeholder="Ex: 1234,56", format="%.2f", step=1.0, min_value=0.01)
                 doc_lanc = st.text_input("Número do Documento", value=doc_extraido)
                 
                 if st.form_submit_button("Confirmar Lançamento"):
