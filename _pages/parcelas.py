@@ -256,39 +256,33 @@ def home():
 
     # --- Aba 3: Duplicar Parcela ---
     with tab_duplicar:
-        st.subheader("Duplicar Parcela em Aberto")
+        st.subheader("Duplicar Parcela de Contrato")
         filtro_contratos = (df['mes'] == now.month) & (df['ano'] == ano_atual) & (df['situacao'] == 'ATIVO')
 
         contratos_duplicaveis = df.loc[filtro_contratos, 'contrato'].dropna().unique()
 
         if contratos_duplicaveis.size == 0:
-            st.warning("Não há contratos com parcelas abertas no período atual para duplicar.")
+            st.warning("Não há contratos com parcelas no período atual para duplicar.")
         else:
             contrato_dup = st.selectbox('Selecione o Contrato:', options=contratos_duplicaveis, key="select_dup_contrato")
-            df_abertas = df[(df['contrato'] == contrato_dup) & (df['status'] == 'ABERTO') & (df["mes"] == now.month) & (df['ano'] == ano_atual)]
+            df_abertas = df[(df['contrato'] == contrato_dup) & (df['situacao'] == 'ATIVO') & (df["mes"] == now.month) & (df['ano'] == ano_atual)]
             
             if df_abertas.empty:
-                st.info("Não há parcelas abertas para este contrato.")
+                st.info("Não há parcelas disponíveis para este contrato.")
             else:
                 st.info("Abaixo estão as parcelas disponíveis para duplicação. Copie o ID desejado.")
-                st.dataframe(df_abertas[['id', 'referente', 'valor', 'mes_nome', 'ano']], column_config={
-                    "id": st.column_config.TextColumn("ID", width="small"),
-                    "referente": st.column_config.TextColumn("Referente", width="small"),
-                    "valor": st.column_config.NumberColumn("Valor", format="R$ %.2f", width="small"),
-                    "mes_nome": st.column_config.TextColumn("Mês", width="small"),
-                    "ano": st.column_config.TextColumn("Ano", width="small")
-                }, hide_index=True)
+                opcoes_dup = [f"{row['id']} | {row['contrato']} | {row['referente']}": index for index, row in df_abertas.iterrows()]
 
                 with st.form('form_duplicar', clear_on_submit=True):
-                    id_parcela_dup_input = st.text_input("Cole o ID da parcela a duplicar")
+                    parcela_dup = st.radio("Parcela a duplicar:", options=opcoes_dup, key="radio_dup_parcela")
                     qtd_dup = st.number_input('Adicionar quantas parcelas?:', min_value=1, value=1, step=1)
                     
                     if st.form_submit_button('Confirmar Duplicação'):
-                        if not id_parcela_dup_input:
-                            st.error("O campo 'ID da parcela' é obrigatório.")
+                        if not parcela_dup:
+                            st.error("Nenhuma parcela foi selecionada.")
                         else:
                             try:
-                                id_parcela_dup = int(id_parcela_dup_input)
+                                id_parcela_dup = int(parcela_dup.split(" | ")[0])
                                 parcela_original_df = df_abertas[df_abertas['id'] == id_parcela_dup]
 
                                 if parcela_original_df.empty:
@@ -306,6 +300,7 @@ def home():
                                                 new_dup[k] = None
                                             elif isinstance(v, pd.Timestamp):
                                                 new_dup[k] = v.isoformat()
+                                        new_dup['status'] = 'ABERTO'
 
                                         duplicatas.append(new_dup)
 
