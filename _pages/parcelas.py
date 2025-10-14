@@ -1,3 +1,4 @@
+import time
 import streamlit as st
 import pandas as pd
 from utils.stamp import now, mes_atual, ano_atual, data_lanc, mes_dict
@@ -5,7 +6,7 @@ from utils.pdf_extractor import extract_pdf
 from supabase import create_client, Client
 from _pages.contratos import contratos
 from _pages.dashboard import show_dashboard
-
+import base64
 
 
 # --- Conexão com o Supabase ---
@@ -13,7 +14,7 @@ url = st.secrets["connections"]["supabase"]["SUPABASE_URL"]
 key = st.secrets["connections"]["supabase"]["SUPABASE_KEY"]
 supabase: Client = create_client(url, key)
 
-@st.cache_data(ttl=300) # Adicionado TTL para recarregar os dados a cada 5 minutos
+@st.cache_data(ttl=300) # recarregar os dados a cada 5 minutos
 def load_data(table_name):
     all_data = []
     offset = 0
@@ -40,7 +41,7 @@ def load_data(table_name):
 def home():
     st.set_page_config(
     page_title="ContraX",
-    page_icon="https://images.vexels.com/media/users/3/137610/isolated/preview/f41aac24df7e7778180e33ab75c69d88-flat-geometric-abstract-logo.png",
+    page_icon='https://images.vexels.com/media/users/3/224235/isolated/preview/c9b0be525cc3bace6e7e91667d7d6bb0-orange-abstract-logo.png',
     layout="wide",
     )
 
@@ -149,19 +150,21 @@ def home():
     ])
 
 
-    # --- Aba 1: Lançar Parcela ---
+ # --- Aba 1: Lançar Parcela ---
     with tab_lancar:
         st.subheader("Lançar Nova Parcela")
-        try:
-            res = supabase.table("parcelas").select("contrato").eq("mes", now.month).eq("ano", ano_atual).eq("status", "ABERTO").execute()
-            contratos_lancaveis = sorted({r.get("contrato") for r in res.data if r.get("contrato")})
-        except Exception as e:
-            st.error(f"Erro ao consultar o banco de dados: {e}")
-            contratos_lancaveis = []
 
-        if not contratos_lancaveis:
+        filtro_lancaveis = (df["status"] == "ABERTO") & (df["mes"] == now.month) & (df["ano"] == ano_atual)
+        parcelas_lancaveis = df[filtro_lancaveis].sort_values(by="contrato", ascending=True)
+
+        if parcelas_lancaveis.empty:
             st.warning("Não há parcelas em aberto para o mês e ano atuais.")
         else:
+            options_box = {
+                f"{row['contrato']} | {row['id']}": row['id'] 
+                for index, row in parcelas_lancaveis.iterrows()
+            }
+            
             uploaded_file = st.file_uploader("1. Anexar Documento Fiscal (Opcional)", type=["pdf"], key="file_uploader_lancar")
             
             valor_extraido_str, doc_extraido = "", ""
@@ -172,26 +175,19 @@ def home():
                 if not valor_extraido_str or not doc_extraido:
                     st.info('Não foi possível extrair todos os dados do PDF. Preencha manualmente.')
 
-            # --- INÍCIO DA CORREÇÃO ---
-            # Trata o valor extraído para garantir que seja float ou None
             valor_inicial_input = None
-            if valor_extraido_str:  # Apenas tenta converter se a string não for vazia
+            if valor_extraido_str:  
                 try:
-                    # Lida com formatos como "1.234,56"
                     valor_limpo = valor_extraido_str.replace('.', '').replace(',', '.')
                     valor_inicial_input = float(valor_limpo)
                 except (ValueError, TypeError):
-                    # Se a conversão falhar, o valor continua None e o campo fica vazio
                     valor_inicial_input = None
-            # --- FIM DA CORREÇÃO ---
 
             with st.form("form_lancar", clear_on_submit=True):
                 st.subheader("2. Confirmar Lançamento")
-                contrato_lanc = st.selectbox("Contrato para Lançamento:", options=contratos_lancaveis)
-                
-                # Usa a variável tratada (valor_inicial_input) ao invés da string original
+
+                contrato_lanc = st.selectbox("Contrato para Lançamento:", options=list(options_box.keys()))
                 valor_lanc = st.number_input("Valor R$", value=valor_inicial_input, placeholder="Ex: 1234,56", format="%.2f", step=1.0, min_value=0.01)
-                
                 doc_lanc = st.text_input("Número do Documento", value=doc_extraido)
                 
                 if st.form_submit_button("Confirmar Lançamento"):
@@ -199,21 +195,25 @@ def home():
                         st.warning("É necessário selecionar um contrato e preencher um valor válido.")
                     else:
                         try:
+                            id_lanc = options_box[contrato_lanc]
+
                             update_data = {
                                 "valor": valor_lanc, "data_lancamento": data_lanc.isoformat(),
                                 "documento": doc_lanc, "status": "LANÇADO"
                             }
-                            upd = supabase.table("parcelas").update(update_data).eq("contrato", contrato_lanc).eq("mes", now.month).eq("ano", ano_atual).eq("status", "ABERTO").execute()
+
+                            upd = supabase.table("parcelas").update(update_data).eq("id", id_lanc).execute()
                             
                             if upd.data:
                                 st.success("Parcela atualizada com sucesso! ✅")
                                 st.cache_data.clear()
                                 st.rerun()
                             else:
-                                st.error("Nenhuma parcela 'ABERTA' encontrada para este contrato no período atual.")
+                                st.error("Nenhuma parcela encontrada com este ID para atualização.")
                         except ValueError:
                             st.error("O valor informado é inválido!")
-
+                        except Exception as e:
+                            st.error(f"Ocorreu um erro inesperado: {e}")
 
     # --- Aba 2: Modificar / Reverter ---
     with tab_modificar:
@@ -264,7 +264,8 @@ def home():
     # --- Aba 3: Duplicar Parcela ---
     with tab_duplicar:
         st.subheader("Duplicar Parcela em Aberto")
-        filtro_contratos = (df['mes'] == now.month) & (df['ano'] == ano_atual) & (df['status'] == 'ABERTO')
+        filtro_contratos = (df['mes'] == now.month) & (df['ano'] == ano_atual) & (df['situacao'] == 'ATIVO')
+
         contratos_duplicaveis = df.loc[filtro_contratos, 'contrato'].dropna().unique()
 
         if contratos_duplicaveis.size == 0:
@@ -307,19 +308,22 @@ def home():
                                     for _ in range(qtd_dup):
                                         new_dup = parcela.copy()
                                         for campo in campos_para_remover: new_dup.pop(campo, None)
-                                        for col_data in ['data_vencimento', 'data_emissao']:
-                                            if col_data in new_dup and pd.notna(new_dup[col_data]):
-                                                new_dup[col_data] = new_dup[col_data].isoformat()
-                                            else:
-                                                new_dup[col_data] = None
+                                        for k, v in new_dup.items():
+                                            if pd.isna(v):
+                                                new_dup[k] = None
+                                            elif isinstance(v, pd.Timestamp):
+                                                new_dup[k] = v.isoformat()
+
                                         duplicatas.append(new_dup)
 
                                     supabase.table("parcelas").insert(duplicatas).execute()
                                     st.success(f"{qtd_dup} parcela(s) duplicada(s) com sucesso! ✅")
+                                    time.sleep(0.7)
                                     st.cache_data.clear()
                                     st.rerun()
-                            except ValueError:
-                                st.error("ID inválido. Por favor, insira um número de ID válido.")
+
+                            except ValueError as e:
+                                st.error(f"ID inválido. Por favor, insira um número de ID válido. Erro: {e}")
                             except Exception as e:
                                 st.error(f"Falha na duplicação. Erro: {e}")
 
@@ -336,6 +340,7 @@ def home():
                         response = supabase.table("parcelas").delete().eq("id", id_exc).execute()
                         if response.data:
                             st.success(f"Linha {id_exc} excluída com sucesso.")
+                            time.sleep(0.7)
                             st.cache_data.clear()
                             st.rerun()
                         else:
