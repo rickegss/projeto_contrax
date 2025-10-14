@@ -271,7 +271,7 @@ def home():
                 st.info("Não há parcelas disponíveis para este contrato.")
             else:
                 st.info("Abaixo estão as parcelas disponíveis para duplicação. Copie o ID desejado.")
-                opcoes_dup = [f"{row['id']} | {row['contrato']} | {row['referente']}": index for index, row in df_abertas.iterrows()]
+                opcoes_dup = [f"{row['id']} | {row['contrato']} | {row['referente']}" for index, row in df_abertas.iterrows()]
 
                 with st.form('form_duplicar', clear_on_submit=True):
                     parcela_dup = st.radio("Parcela a duplicar:", options=opcoes_dup, key="radio_dup_parcela")
@@ -300,7 +300,11 @@ def home():
                                                 new_dup[k] = None
                                             elif isinstance(v, pd.Timestamp):
                                                 new_dup[k] = v.isoformat()
-                                        new_dup['status'] = 'ABERTO'
+                                        new_dup.update({
+                                            'status': 'ABERTO',
+                                            'valor': None,
+                                            'documento': None
+                                        })
 
                                         duplicatas.append(new_dup)
 
