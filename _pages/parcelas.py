@@ -51,11 +51,10 @@ def home():
     with ti:
         st.title("Lançamento de Parcelas")
     st.divider()
-    # --- Carregamento de Dados ---
+
     df = load_data("parcelas")
 
     # --- Seção de Filtros ---
-
     with st.expander("Filtros de Visualização", expanded=True):
         anos_disponiveis = df["ano"].dropna().sort_values().unique().tolist()
         meses_disponiveis = df["mes_nome"].dropna().unique().tolist()
@@ -188,7 +187,7 @@ def home():
                         st.warning("É necessário selecionar um contrato e preencher um valor válido.")
                     else:
                         try:
-                            id_lanc = options_box[contrato_lanc]
+                            id_lanc = options_box[contrato_lanc] 
 
                             update_data = {
                                 "valor": valor_lanc, "data_lancamento": data_lanc.isoformat(),
@@ -342,7 +341,6 @@ def home():
                 else:
                     st.warning("Por favor, insira um ID para excluir.")
 
-# Ponto de entrada do script
 def main():
     """
     Função principal que organiza a aplicação em abas.
