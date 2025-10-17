@@ -320,13 +320,11 @@ def contratos():
 
             with st.form("form_renovar_contrato", clear_on_submit=True):
                 dias_renovar = st.number_input("Renovar por quantos dias?", min_value=1, step=30)
-                data_renovacao = st.date_input("Data da renovação", value=datetime.now().date())
 
                 if st.form_submit_button("Renovar Contrato", type="primary"):
                     renovacao = {
-                        "termino": (data_renovacao + relativedelta(days=dias_renovar)).isoformat(),
+                        "termino": (hoje + relativedelta(days=dias_renovar)).isoformat(),
                         "situacao": "ATIVO",
-                        "inicio": data_renovacao.isoformat()
                     }
                 
                     try:
@@ -411,10 +409,21 @@ def contratos():
             hide_index=True,
             width='stretch',
             column_config={
-                "Início": st.column_config.DateColumn("Início", format="DD/MM/YY"),
-                "Término": st.column_config.DateColumn("Término", format="DD/MM/YY"),
-                "Renovação": st.column_config.DateColumn("Renovação", format="DD/MM/YY"),
-                " Valor do Contrato R$ ": st.column_config.NumberColumn("Valor do Contrato", format='R$ %.2f'),
+                "id": st.column_config.TextColumn("ID", width="small"),
+                "situacao": st.column_config.TextColumn("Situação", width="small"),
+                "numero": st.column_config.TextColumn("Número", width="small"),
+                "contrato": st.column_config.TextColumn("Contrato", width="small"),
+                "conta": st.column_config.TextColumn("Conta", width="small"),
+                "centro_custo": st.column_config.TextColumn("Centro de Custo", width="small"),
+                "estabelecimento": st.column_config.TextColumn("Estabelecimento", width="small"),
+                "classificacao": st.column_config.TextColumn("Classificação", width="small"),
+                "categoria": st.column_config.TextColumn("Categoria", width="small"),
+                "descricao": st.column_config.TextColumn("Descrição", width="small"),
+                "cnpj": st.column_config.TextColumn("CNPJ", width="small"),
+                "anexos": st.column_config.TextColumn("Anexos", width="small"),
+                "valor_contrato": st.column_config.NumberColumn("Valor do Contrato", format='R$ %.2f'),
+                "inicio": st.column_config.DateColumn("Início", format="DD/MM/YY"),
+                "termino": st.column_config.DateColumn("Término", format="DD/MM/YY")                
             }
         )
 
