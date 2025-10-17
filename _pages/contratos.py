@@ -4,6 +4,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from supabase import create_client, Client
 
+
 def contratos():
     url = st.secrets["connections"]["supabase"]["SUPABASE_URL"]
     key = st.secrets["connections"]["supabase"]["SUPABASE_KEY"]
@@ -297,8 +298,44 @@ def contratos():
                         st.error(f"Erro ao atualizar contrato: {e}")
 
     def renew_contract(df):
-        pass
+        coll5, = st.columns(1)
 
+        with coll5:
+            st.subheader("Renovar Contrato")
+            
+            hoje = datetime.now().date()
+            df['termino'] = pd.to_datetime(df['termino']).dt.date
+            
+            contratos_renovar = df["contrato"][df["termino"] < hoje].dropna().unique()
+            
+            if not any(contratos_renovar):
+                st.warning("Nenhum contrato para renovar.")
+                return
+            
+            contrato_renew = st.selectbox("Contrato a renovar:", options=contratos_renovar)
+            data_termino = df.loc[df["contrato"] == contrato_renew, "termino"].iloc[0]
+            dias_vencido = (hoje - data_termino).days
+            
+            st.warning(f"O contrato {contrato_renew} está vencido há {dias_vencido} dias.")
+
+            with st.form("form_renovar_contrato", clear_on_submit=True):
+                dias_renovar = st.number_input("Renovar por quantos dias?", min_value=1, step=30)
+                data_renovacao = st.date_input("Data da renovação", value=datetime.now().date())
+
+                if st.form_submit_button("Renovar Contrato", type="primary"):
+                    renovacao = {
+                        "termino": (data_renovacao + relativedelta(days=dias_renovar)).isoformat(),
+                        "situacao": "ATIVO",
+                        "inicio": data_renovacao.isoformat()
+                    }
+                
+                    try:
+                        supabase.table("contratos").update(renovacao).eq("contrato", contrato_renew).execute()
+                        st.success("Contrato renovado com sucesso!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao renovar contrato: {e}")
     
     
     def tabs_show():
