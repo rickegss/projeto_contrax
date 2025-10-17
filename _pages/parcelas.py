@@ -30,12 +30,13 @@ def load_data(table_name):
     df = pd.DataFrame(all_data)
     
     # Conversão de colunas de data e otimização de tipos de dados
-    for col in ["data_lancamento", "data_emissao", "data_vencimento"]:
-        df[col] = pd.to_datetime(df[col], errors="coerce")
-
-    df[["tipo", "contrato", "estabelecimento", "status"]] = df[["tipo", "contrato", "estabelecimento", "status"]].astype("category") 
-    month_display_map = {v: k for k, v in mes_dict.items()}
-    df['mes_nome'] = df['mes'].apply(lambda x: month_display_map.get(x, f'Mês {x}'))
+    if table_name == "parcelas":
+        for col in ["data_lancamento", "data_emissao", "data_vencimento"]:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+    
+            df[["tipo", "contrato", "estabelecimento", "status"]] = df[["tipo", "contrato", "estabelecimento", "status"]].astype("category") 
+            month_display_map = {v: k for k, v in mes_dict.items()}
+            df['mes_nome'] = df['mes'].apply(lambda x: month_display_map.get(x, f'Mês {x}'))
     return df
 
 def home():

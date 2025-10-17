@@ -1,3 +1,5 @@
+from datetime import datetime
+import pandas as pd
 import streamlit as st
 import plotly.express as px
 from utils.stamp import ano_atual, mes_atual
@@ -123,65 +125,107 @@ def show_dashboard():
     with ti:
         st.title("Dashboard")
     st.divider()
-    parcelas_df = load_data("parcelas")
-    if parcelas_df.empty:
-        st.warning("Não foi possível carregar os dados. O dashboard não pode ser exibido.")
-        return
 
-    show_filters(parcelas_df)
-    df_filtrado = parcelas_df[
-        (parcelas_df["ano"].isin(st.session_state.dash_ano_selecionado)) &
-        (parcelas_df["mes_nome"].isin(st.session_state.dash_mes_selecionado)) &
-        (parcelas_df["contrato"].isin(st.session_state.dash_contrato_selecionado)) &
-        (parcelas_df["tipo"].isin(st.session_state.dash_tipo_selecionado)) &
-        (parcelas_df["estabelecimento"].isin(st.session_state.dash_estabelecimento_selecionado)) &
-        (parcelas_df["status"].isin(st.session_state.dash_status_selecionado))
-    ]
+    tab_geral, tab_gantt = st.tabs(["Gastos e Faturamento", "Contratos Gantt"])
+    
+    with tab_geral:
+        parcelas_df = load_data("parcelas")
+        if parcelas_df.empty:
+            st.warning("Não foi possível carregar os dados. O dashboard não pode ser exibido.")
+            return
 
-    df_mensal = parcelas_df[
-        (parcelas_df["ano"].isin(st.session_state.dash_ano_selecionado)) &
-        (parcelas_df["contrato"].isin(st.session_state.dash_contrato_selecionado)) &
-        (parcelas_df["tipo"].isin(st.session_state.dash_tipo_selecionado)) &
-        (parcelas_df["estabelecimento"].isin(st.session_state.dash_estabelecimento_selecionado)) &
-        (parcelas_df["status"].isin(st.session_state.dash_status_selecionado))
-    ]
+        show_filters(parcelas_df)
+        df_filtrado = parcelas_df[
+            (parcelas_df["ano"].isin(st.session_state.dash_ano_selecionado)) &
+            (parcelas_df["mes_nome"].isin(st.session_state.dash_mes_selecionado)) &
+            (parcelas_df["contrato"].isin(st.session_state.dash_contrato_selecionado)) &
+            (parcelas_df["tipo"].isin(st.session_state.dash_tipo_selecionado)) &
+            (parcelas_df["estabelecimento"].isin(st.session_state.dash_estabelecimento_selecionado)) &
+            (parcelas_df["status"].isin(st.session_state.dash_status_selecionado))
+        ]
 
-    # --- Layout da Página ---
-    main_col, side_col = st.columns([2.5, 1.7])
-    with main_col:
-        with st.container(border=True):
-            if not df_mensal.empty:
-                fig_despesa = plot_despesa_mensal(df_mensal)
-                st.plotly_chart(fig_despesa, use_container_width=True)
-            else:
-                st.info("Nenhum dado de despesa mensal para exibir com os filtros atuais.")
-        
-        st.divider()
+        df_mensal = parcelas_df[
+            (parcelas_df["ano"].isin(st.session_state.dash_ano_selecionado)) &
+            (parcelas_df["contrato"].isin(st.session_state.dash_contrato_selecionado)) &
+            (parcelas_df["tipo"].isin(st.session_state.dash_tipo_selecionado)) &
+            (parcelas_df["estabelecimento"].isin(st.session_state.dash_estabelecimento_selecionado)) &
+            (parcelas_df["status"].isin(st.session_state.dash_status_selecionado))
+        ]
 
-        if not df_filtrado.empty:
-            sub_col1, sub_col2 = st.columns(2)
-            with sub_col1, st.container(border=True):
-                fig_bar_estabelecimento = plot_total_estabelecimento_bar(df_filtrado)
-                st.plotly_chart(fig_bar_estabelecimento, use_container_width=True)
-            with sub_col2, st.container(border=True):
-                fig_pie_estabelecimento = plot_pizza_estabelecimentos(df_filtrado)
-                st.plotly_chart(fig_pie_estabelecimento, use_container_width=True)
-        else:
-             st.info("Nenhum dado de estabelecimento para exibir com os filtros atuais.")
+        # --- Layout da Página ---
+        main_col, side_col = st.columns([2.5, 1.7])
+        with main_col:
+            with st.container(border=True):
+                if not df_mensal.empty:
+                    fig_despesa = plot_despesa_mensal(df_mensal)
+                    st.plotly_chart(fig_despesa, use_container_width=True)
+                else:
+                    st.info("Nenhum dado de despesa mensal para exibir com os filtros atuais.")
+            
+            st.divider()
 
-    with side_col:
-        with st.container(border=True):
             if not df_filtrado.empty:
-                fig_top_prest = plot_top_prestadores(df_filtrado)
-                fig_top_prest.update_layout(height=450)
-                st.plotly_chart(fig_top_prest, use_container_width=True)
+                sub_col1, sub_col2 = st.columns(2)
+                with sub_col1, st.container(border=True):
+                    fig_bar_estabelecimento = plot_total_estabelecimento_bar(df_filtrado)
+                    st.plotly_chart(fig_bar_estabelecimento, use_container_width=True)
+                with sub_col2, st.container(border=True):
+                    fig_pie_estabelecimento = plot_pizza_estabelecimentos(df_filtrado)
+                    st.plotly_chart(fig_pie_estabelecimento, use_container_width=True)
             else:
-                st.info("Nenhum dado para o Top 10 Prestadores com os filtros atuais.")
+                st.info("Nenhum dado de estabelecimento para exibir com os filtros atuais.")
 
-        st.divider()
-        with st.container(border=True):
-            fig_fat_hcompany = plot_faturamento_hcompany(df_mensal, st.session_state.dash_ano_selecionado)
-            st.plotly_chart(fig_fat_hcompany, use_container_width=True)
+        with side_col:
+            with st.container(border=True):
+                if not df_filtrado.empty:
+                    fig_top_prest = plot_top_prestadores(df_filtrado)
+                    fig_top_prest.update_layout(height=450)
+                    st.plotly_chart(fig_top_prest, use_container_width=True)
+                else:
+                    st.info("Nenhum dado para o Top 10 Prestadores com os filtros atuais.")
+
+            st.divider()
+            with st.container(border=True):
+                fig_fat_hcompany = plot_faturamento_hcompany(df_mensal, st.session_state.dash_ano_selecionado)
+                st.plotly_chart(fig_fat_hcompany, use_container_width=True)
+
+    with tab_gantt:
+        contratos = load_data("contratos")
+        contratos["inicio"] = pd.to_datetime(contratos["inicio"])
+        contratos["termino"] = pd.to_datetime(contratos["termino"])
+
+        df_gantt = contratos.dropna(subset=["inicio", "termino"])
+        
+        fig = px.timeline(
+            df_gantt, 
+            x_start="inicio", 
+            x_end="termino", 
+            y="contrato",   
+            color_discrete_sequence=px.colors.sequential.Viridis_r[8:],
+            title="Cronograma de Vigência de Contratos",
+            height=1400,
+            width=1900
+        )
+        hoje = datetime.now()
+        fig.add_vline(
+            x=hoje,
+            line_width=2,
+            line_dash="dash",
+            line_color="cyan"
+        )
+        fig.add_annotation(
+            x=hoje,
+            y=1.03,
+            yref="paper",
+            text="Hoje",
+            showarrow=False,
+            font=dict(color="cyan"),
+            align="center"
+        )
+    
+        fig.update_yaxes(autorange="reversed")
+
+        st.plotly_chart(fig, use_container_width=False)
 
 if __name__ == "__main__":
     show_dashboard()
