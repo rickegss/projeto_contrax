@@ -15,12 +15,12 @@ def plot_despesa_mensal(df):
 def plot_total_estabelecimento_bar(df):
     df_agrupado = df.groupby('estabelecimento', observed=True)['valor'].sum().reset_index().sort_values('valor')
     df_agrupado['TextoValor'] = df_agrupado['valor'].apply(formata_moeda)
-    fig = px.bar(df_agrupado, x='valor', y='estabelecimento', orientation='h', title='Total por Estabelecimento', labels={"estabelecimento": "Estabelecimento", "valor": "Total R$"}, text='TextoValor', color="estabelecimento", color_discrete_sequence=px.colors.sequential.Viridis_r[8:])
+    fig = px.bar(df_agrupado, x='valor', y='estabelecimento', orientation='h', title='Total por Estabelecimento', labels={"estabelecimento": "Estabelecimento", "valor": "Total R$"}, text='TextoValor', color="estabelecimento", color_discrete_sequence=px.colors.sequential.Viridis)
     return fig
 
 def plot_pizza_estabelecimentos(df):
     df_agrupado = df.groupby('estabelecimento', observed=True)['valor'].sum().reset_index()
-    fig = px.pie(df_agrupado, values='valor', names='estabelecimento', title='Distribuição de Gastos', labels={"estabelecimento": "Estabelecimento", "valor": "Total R$"}, color="estabelecimento", color_discrete_sequence=px.colors.sequential.Viridis_r[8:])
+    fig = px.pie(df_agrupado, values='valor', names='estabelecimento', title='Distribuição de Gastos', labels={"estabelecimento": "Estabelecimento", "valor": "Total R$"}, color="estabelecimento", color_discrete_sequence=px.colors.sequential.Viridis)
     return fig
 
 def plot_top_prestadores(df):
