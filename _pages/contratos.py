@@ -221,17 +221,90 @@ def contratos():
                                     except Exception as e:
                                         st.error(f"Erro ao ativar contrato: {e}")
 
-    def renovar_contrato():
+    def edit_contract(df):
+        coll4, = st.columns(1)
+
+        with coll4:
+            st.subheader("Editar informações")
+            opcoes_contrato = df["contrato"].dropna().unique()
+            if not any(opcoes_contrato):
+                st.warning("Nenhum contrato existente.")
+                return
+
+            contrato_edit = st.selectbox(label="Selecione o Contrato",options=opcoes_contrato)
+            st.markdown("##### Dados do Contrato")
+            dados_contrato = supabase.table("contratos").select("*").eq("contrato", contrato_edit).execute()
+            dict_dados = dados_contrato.data[0]
+            dict_dados["valor_contrato"] = 1 if not dict_dados["valor_contrato"] else dict_dados["valor_contrato"]
+
+
+            with st.form("form_editar_contrato", clear_on_submit=True):
+                if dict_dados["termino"] and dict_dados["inicio"]:
+                   print(dict_dados["termino"], type(dict_dados["termino"])) 
+                   print(dict_dados["inicio"], type(dict_dados["termino"])) 
+                   duracao = relativedelta(datetime.fromisoformat(dict_dados["termino"]), datetime.fromisoformat(dict_dados["inicio"]))
+                   duracao = int(duracao.years * 12 + duracao.months)
+                else:
+                    duracao = 1
+                contrato = st.text_input("Nome do Contrato", value=dict_dados["contrato"])
+                contrato = contrato.upper()
+                cnpj = st.text_input("CNPJ", value=dict_dados["cnpj"])
+                numero_contrato = st.text_input("Número do Contrato (ou 'PEDIDO')", value=dict_dados["numero"])
+                descricao = st.text_input("Descrição", value=dict_dados["descricao"])
+                st.markdown("---")
+                estabelecimento = st.selectbox("Estabelecimento", options=df["estabelecimento"].dropna().unique(), index=df["estabelecimento"].dropna().unique().tolist().index(dict_dados["estabelecimento"]))
+                valor_contrato = st.number_input("Valor do Contrato R$", format="%.2f", step=1.0, min_value=1.0, value=float(dict_dados["valor_contrato"]))
+                duracao = st.number_input("Duração do contrato (meses)", format="%d", value=duracao, min_value=1, step=1)
+                conta = st.number_input("Conta", step=1.0, value=float(dict_dados["conta"]))
+                conta = str(float(conta))
+                centro_custo = st.number_input("Centro de Custo", step=1.0, value=float(dict_dados["centro_custo"]))
+                centro_custo = str(float(centro_custo))
+                classificacao = st.selectbox("Classificação", options=df["classificacao"].dropna().unique(), index=list(df["classificacao"].dropna().unique()).index(dict_dados["classificacao"]))  
+                categoria = st.selectbox("Categoria", options=df["categoria"].dropna().unique(), index=df["categoria"].dropna().unique().tolist().index(dict_dados["categoria"]))
+                data_inicio = st.date_input("Data de Início", value=dict_dados["inicio"])
+                if duracao:
+                    valor_parcela = valor_contrato / duracao
+                    if data_inicio:
+                        duracao_delta = relativedelta(months=duracao)
+                        data_termino = data_inicio + relativedelta(months=duracao, days=-1)
+                if st.form_submit_button("Atualizar Dados", type="primary"):
+                    edited_contract = {
+                        "situacao": "ATIVO",
+                        "numero": numero_contrato,
+                        "contrato": contrato,
+                        "cnpj": cnpj,
+                        "conta": conta,
+                        "centro_custo": centro_custo,
+                        "classificacao": classificacao,
+                        "categoria": categoria,
+                        "estabelecimento": estabelecimento,
+                        "descricao": descricao,
+                        "valor_contrato": valor_contrato,
+                        "anexos": dict_dados["anexos"],
+                    }
+
+                    if data_inicio:
+                        edited_contract["inicio"] = data_inicio.isoformat()
+                        edited_contract["termino"] = data_termino.isoformat()
+
+
+                    try:
+                        supabase.table("contratos").update(edited_contract).eq("contrato", contrato_edit).execute()
+                        st.success("Contrato atualizado com sucesso!")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao atualizar contrato: {e}")
+
+    def renew_contract(df):
         pass
 
-    def editar_contrato():
-        pass
     
     
     def tabs_show():
         contratos = load_data("contratos")
-        tab_novo, tab_excluir, tab_desativar = st.tabs([
-        " Novo Contrato", " Excluir Contrato ", " Desativar Contrato",])
+        tab_novo, tab_excluir,  tab_editar, tab_desativar, tab_renovar = st.tabs([
+        " Novo Contrato", " Excluir Contrato ", "Editar Contrato", " Desativar Contrato", "Renovar Contrato"])
 
         with tab_novo:
             new_contract(contratos)
@@ -239,7 +312,10 @@ def contratos():
             delete_contract(contratos)
         with tab_desativar:
             active_deactive_contract(contratos)
-               
+        with tab_editar:
+             edit_contract(contratos)
+        with tab_renovar:
+            renew_contract(contratos)
 
     def show():
         st.set_page_config(
