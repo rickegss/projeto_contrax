@@ -154,7 +154,7 @@ def home():
     with tab_lancar:
         st.subheader("Lançar Nova Parcela")
 
-        filtro_lancaveis = (df["status"] == "ABERTO") & (df["mes"] == now.month) & (df["ano"] == ano_atual)
+        filtro_lancaveis = (df["status"] == "ABERTO") & (df["mes"] == df_filter["mes"].iloc[0]) & (df["ano"] == ano_atual)
         parcelas_lancaveis = df[filtro_lancaveis].sort_values(by="contrato", ascending=True)
 
         if parcelas_lancaveis.empty:
@@ -189,11 +189,16 @@ def home():
                     else:
                         try:
                             id_lanc = options_box[contrato_lanc] 
-
-                            update_data = {
-                                "valor": valor_lanc, "data_lancamento": data_lanc.isoformat(),
-                                "documento": doc_lanc, "status": "LANÇADO"
-                            }
+                            if df_filter["mes"].iloc[0] == mes_atual:
+                                update_data = {
+                                    "valor": valor_lanc, "data_lancamento": data_lanc.isoformat(),
+                                    "documento": doc_lanc, "status": "LANÇADO"
+                                }
+                            else:
+                                update_data = {
+                                    "valor": valor_lanc, "data_lancamento": data_lanc.isoformat(),
+                                    "documento": doc_lanc, "status": "LANÇADO"
+                                }
 
                             upd = supabase.table("parcelas").update(update_data).eq("id", id_lanc).execute()
                             
@@ -203,10 +208,12 @@ def home():
                                 st.rerun()
                             else:
                                 st.error("Nenhuma parcela encontrada com este ID para atualização.")
-                        except ValueError:
-                            st.error("O valor informado é inválido!")
+                        except ValueError as e:
+                            st.error(f"""O valor informado é inválido!
+                                     Erro: {e}""" )
                         except Exception as e:
                             st.error(f"Ocorreu um erro inesperado: {e}")
+
 
     # --- Aba 2: Modificar / Reverter ---
     with tab_modificar:
@@ -318,6 +325,7 @@ def home():
                                 st.error(f"ID inválido. Por favor, insira um número de ID válido. Erro: {e}")
                             except Exception as e:
                                 st.error(f"Falha na duplicação. Erro: {e}")
+
 
     # --- Aba 4: Excluir Parcela ---
     with tab_excluir:
