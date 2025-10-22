@@ -264,7 +264,7 @@ def home():
     # --- Aba 3: Duplicar Parcela ---
     with tab_duplicar:
         st.subheader("Duplicar Parcela de Contrato")
-        filtro_contratos = (df['mes'] == now.month) & (df['ano'] == ano_atual) & (df['situacao'] == 'ATIVO')
+        filtro_contratos = (df['mes'] == df_filter['mes'].iloc[0]) & (df['ano'] == df_filter['ano'].iloc[0]) & (df['situacao'] == 'ATIVO')
 
         contratos_duplicaveis = df.loc[filtro_contratos, 'contrato'].dropna().unique()
 
@@ -272,7 +272,7 @@ def home():
             st.warning("Não há contratos com parcelas no período atual para duplicar.")
         else:
             contrato_dup = st.selectbox('Selecione o Contrato:', options=contratos_duplicaveis, key="select_dup_contrato")
-            df_abertas = df[(df['contrato'] == contrato_dup) & (df['situacao'] == 'ATIVO') & (df["mes"] == now.month) & (df['ano'] == ano_atual)]
+            df_abertas = df[(df['contrato'] == contrato_dup) & (df['situacao'] == 'ATIVO') & (df["mes"] == df_filter['mes'].iloc[0]) & (df['ano'] == df_filter['ano'].iloc[0])]
             
             if df_abertas.empty:
                 st.info("Não há parcelas disponíveis para este contrato.")
