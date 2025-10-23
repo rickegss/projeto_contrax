@@ -37,6 +37,7 @@ def load_data(table_name):
             df[["tipo", "contrato", "estabelecimento", "status"]] = df[["tipo", "contrato", "estabelecimento", "status"]].astype("category") 
             month_display_map = {v: k for k, v in mes_dict.items()}
             df['mes_nome'] = df['mes'].apply(lambda x: month_display_map.get(x, f'Mês {x}'))
+
     return df
 
 def home():
@@ -71,9 +72,9 @@ def home():
         if 'home_contrato_selecionado' not in st.session_state:
             st.session_state.home_contrato_selecionado = contratos_disponiveis
         if 'home_status_selecionado' not in st.session_state:
-            st.session_state.home_status_selecionado = ['ABERTO']
+            st.session_state.home_status_selecionado = 'ABERTO'
         if "home_situacao_selecionado" not in st.session_state:
-            st.session_state.home_situacao_selecionado = ['ATIVO']
+            st.session_state.home_situacao_selecionado = 'ATIVO'
 
         # Funções de callback para os botões "Todos" e "Limpar"
         def selecionar_todos(chave_estado, opcoes):
@@ -104,25 +105,19 @@ def home():
             b_col2.button("Limpar", on_click=limpar_selecao, args=('home_contrato_selecionado',), key='home_btn_limpar_contratos')
 
         with col4:
-            st.multiselect("Status", options=status_disponiveis, key='home_status_selecionado')
-            b_col1, b_col2 = st.columns(2)
-            b_col1.button("Todos", on_click=selecionar_todos, args=('home_status_selecionado', status_disponiveis), key='home_btn_todos_status')
-            b_col2.button("Limpar", on_click=limpar_selecao, args=('home_status_selecionado',), key='home_btn_limpar_status')
+            st.radio("Status", options=status_disponiveis, key='home_status_selecionado')
         
         with col5:
-            st.multiselect("Situação", options=situacao_disponiveis, key='home_situacao_selecionado')
-            b_col1, b_col2 = st.columns(2)
-            b_col1.button("Todos", on_click=selecionar_todos, args=('home_situacao_selecionado', situacao_disponiveis), key='home_btn_todos_situacao')
-            b_col2.button("Limpar", on_click=limpar_selecao, args=('home_situacao_selecionado',), key='home_btn_limpar_situacao')
-    
+            st.radio("Situação", options=situacao_disponiveis, key='home_situacao_selecionado')
+
 
     # --- Aplicação dos Filtros e Exibição do DataFrame ---
     df_filter = df[
         (df["ano"].isin(st.session_state.home_ano_selecionado)) &
         (df["mes_nome"].isin(st.session_state.home_mes_selecionado)) &
         (df["contrato"].isin(st.session_state.home_contrato_selecionado)) &
-        (df["situacao"].isin(st.session_state.home_situacao_selecionado)) &
-        (df["status"].isin(st.session_state.home_status_selecionado))
+        (df["situacao"] == (st.session_state.home_situacao_selecionado)) &
+        (df["status"] == (st.session_state.home_status_selecionado))
     ]
 
     df_show = df_filter.drop(columns=["data_lancamento", 'documento', "mes_nome", "situacao", "contrato_id"]) if "ABERTO" in st.session_state.home_status_selecionado else df_filter.drop(columns=["mes_nome"])
@@ -154,7 +149,7 @@ def home():
     with tab_lancar:
         st.subheader("Lançar Nova Parcela")
 
-        filtro_lancaveis = (df["status"] == "ABERTO") & (df["mes"] == df_filter["mes"].iloc[0]) & (df["ano"] == ano_atual)
+        filtro_lancaveis = (df["status"] == "ABERTO") & (df["mes"] == df_filter["mes"].iloc[0]) & (df["ano"] == df_filter["ano"].iloc[0])
         parcelas_lancaveis = df[filtro_lancaveis].sort_values(by="contrato", ascending=True)
 
         if parcelas_lancaveis.empty:
@@ -219,38 +214,57 @@ def home():
     with tab_modificar:
         col_mod, col_rev = st.columns(2)
         with col_mod:
-            with st.form("form_alterar", clear_on_submit=True):
-                st.subheader("Alterar Lançamento")
-                id_alt = st.text_input("ID da parcela")
-                novo_valor = st.number_input("Novo Valor R$ (opcional)", value=None, format="%.2f", placeholder="Deixe em branco para não alterar", step=1.0, min_value=0.01)
-                novo_doc = st.text_input("Novo N° Documento (opcional)", value=None, placeholder="Deixe em branco para não alterar")
+            st.subheader("Alterar Lançamento")
+            filtro_modificar = (df["ano"] == df_filter["ano"].iloc[0]) & (df["mes"] == df_filter["mes"].iloc[0]) & (df["status"] == 'LANÇADO')
+            df_modificar = df[filtro_modificar].sort_values(by="contrato", ascending=True)
+            contratos_modificar = df_modificar["contrato"].dropna().unique()
 
+            contrato_mod = st.selectbox("Contrato a modificar parcela:", options=contratos_modificar)
+            parcelas_modificar = df[(df["contrato"] == contrato_mod) & (df['status'] == 'LANÇADO') & (df["mes"] == df_filter["mes"].iloc[0]) & (df["ano"] == df_filter["ano"].iloc[0])]
+
+            opcoes_mod = [f"{row['id']} | {row['contrato']} | N° {row['documento']} | R$ {row['valor']}" for index, row in parcelas_modificar.iterrows()]
+            parcela_mod = st.radio("Parcela a modificar:", options=opcoes_mod, key="radio_mod_parcela")
+
+            id_parcela_mod = int(parcela_mod.split(" | ")[0])
+            parcela_original = df_modificar[df_modificar['id'] == id_parcela_mod]
+
+            novo_valor = st.number_input("Valor R$", value=parcela_original["valor"].iloc[0], format="%.2f", step=1.0, min_value=0.01)
+            novo_doc = st.text_input("N° Documento", value=parcela_original["documento"].iloc[0])
+
+            with st.form("form_alterar", clear_on_submit=True):
                 if st.form_submit_button("Confirmar Alteração"):
-                    if not id_alt or (novo_valor is None and not novo_doc):
-                        st.warning("Preencha o ID e pelo menos um campo para alterar.")
+                    if (novo_valor is None or not novo_doc):
+                        st.warning("Preencha número do documento e valor.")
+                        
                     else:
                         data_atualizar = {}
-                        if novo_valor is not None and novo_valor > 0: data_atualizar["valor"] = novo_valor
-                        if novo_doc: data_atualizar["documento"] = novo_doc
+                        if novo_valor is not None and novo_valor > 0: 
+                            data_atualizar["valor"] = novo_valor
+                            
+                        if novo_doc:
+                            data_atualizar["documento"] = novo_doc
                         
                         if data_atualizar:
-                            res = supabase.table("parcelas").update(data_atualizar).eq("id", id_alt).execute()
+                            res = supabase.table("parcelas").update(data_atualizar).eq("id", id_parcela_mod).execute()
+
                             if res.data:
                                 st.success("Parcela atualizada com sucesso! ✅")
                                 st.cache_data.clear()
                                 st.rerun()
                             else: st.error("ID não encontrado ou falha na atualização.")
+                            
                         else:
                             st.warning("Nenhum dado válido fornecido para a atualização.")
+
         with col_rev:
             with st.form("form_reverter", clear_on_submit=True):
                 st.subheader("Desfazer Lançamento")
-                id_rev = st.text_input("ID da parcela a desfazer o lançamento")
+                st.text("Clique no botão abaixo para cancelar o lançamento da parcela:")
 
-                if st.form_submit_button("Confirmar Reversão"):
-                    if id_rev:
+                if st.form_submit_button("Cancelar Lançamento"):
+                    if id_parcela_mod:
                         update_data = {"valor": None, "documento": None, "data_lancamento": None, "status": "ABERTO"}
-                        res = supabase.table("parcelas").update(update_data).eq("id", id_rev).execute()
+                        res = supabase.table("parcelas").update(update_data).eq("id", id_parcela_mod).execute()
                         if res.data:
                             st.success("Parcela revertida com sucesso! ✅")
                             st.cache_data.clear()
@@ -277,7 +291,6 @@ def home():
             if df_abertas.empty:
                 st.info("Não há parcelas disponíveis para este contrato.")
             else:
-                st.info("Abaixo estão as parcelas disponíveis para duplicação. Copie o ID desejado.")
                 opcoes_dup = [f"{row['id']} | {row['contrato']} | {row['referente']}" for index, row in df_abertas.iterrows()]
 
                 with st.form('form_duplicar', clear_on_submit=True):
