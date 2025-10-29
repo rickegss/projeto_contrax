@@ -18,9 +18,11 @@ def plot_total_estabelecimento_bar(df):
     fig = px.bar(df_agrupado, x='valor', y='estabelecimento', orientation='h', title='Total por Estabelecimento', labels={"estabelecimento": "Estabelecimento", "valor": "Total R$"}, text='TextoValor', color="estabelecimento", color_discrete_sequence=px.colors.sequential.Viridis)
     return fig
 
-def plot_pizza_estabelecimentos(df):
-    df_agrupado = df.groupby('estabelecimento', observed=True)['valor'].sum().reset_index()
-    fig = px.pie(df_agrupado, values='valor', names='estabelecimento', title='Distribuição de Gastos', labels={"estabelecimento": "Estabelecimento", "valor": "Total R$"}, color="estabelecimento", color_discrete_sequence=px.colors.sequential.Viridis)
+def plot_classificacao(df):
+    df_agrupado = df.groupby('classificacao', observed=True)['valor'].sum().reset_index()
+    df_agrupado['TextoValor'] = df_agrupado['valor'].apply(formata_moeda)
+    fig = px.bar(df_agrupado, x='classificacao', y='valor', title='Despesas por Classificação', labels={"classificacao": "Classificação", "valor": "Total R$"}, text='TextoValor')
+    fig.update_traces(textposition='outside', textangle=0)
     return fig
 
 def plot_top_prestadores(df):
@@ -61,6 +63,7 @@ def show_filters(df):
     tipo_filtro = sorted(df["tipo"].dropna().unique().tolist())
     estabelecimento_filtro = sorted(df["estabelecimento"].dropna().unique().tolist())
     status_filtro = sorted(df["status"].dropna().unique().tolist())
+    classificacao_filtro = sorted(df["classificacao"].dropna().unique().tolist())
 
     if 'dash_ano_selecionado' not in st.session_state:
         st.session_state.dash_ano_selecionado = [ano_atual]
@@ -74,6 +77,8 @@ def show_filters(df):
         st.session_state.dash_estabelecimento_selecionado = estabelecimento_filtro
     if 'dash_status_selecionado' not in st.session_state:
         st.session_state.dash_status_selecionado = ['LANÇADO']
+    if 'dash_classificacao_selecionada' not in st.session_state:
+        st.session_state.dash_classificacao_selecionada = classificacao_filtro
 
     def selecionar_todos(chave_estado, opcoes):
         st.session_state[chave_estado] = opcoes
@@ -113,6 +118,11 @@ def show_filters(df):
         b_col1.button("Todos", on_click=selecionar_todos, args=('dash_status_selecionado', status_filtro), key='btn_todos_status', use_container_width=True)
         b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_status_selecionado',), key='btn_limpar_status', use_container_width=True)
 
+        st.multiselect("Classificação", options=classificacao_filtro, key="dash_classificacao_selecionada")
+        b_col1, b_col2 = st.columns(2)
+        b_col1.button("Todos", on_click=selecionar_todos, args=('dash_classificacao_selecionada', status_filtro), key='btn_todos_classificacao', use_container_width=True)
+        b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_classificacao_selecionada',), key='btn_limpar_classificacao', use_container_width=True)
+
 def show_dashboard():
     from _pages.parcelas import load_data
     """
@@ -139,12 +149,24 @@ def show_dashboard():
             (parcelas_df["ano"].isin(st.session_state.dash_ano_selecionado)) &
             (parcelas_df["mes_nome"].isin(st.session_state.dash_mes_selecionado)) &
             (parcelas_df["contrato"].isin(st.session_state.dash_contrato_selecionado)) &
+            (~parcelas_df["contrato"].str.startswith("HCOMPANY")) &
             (parcelas_df["tipo"].isin(st.session_state.dash_tipo_selecionado)) &
             (parcelas_df["estabelecimento"].isin(st.session_state.dash_estabelecimento_selecionado)) &
-            (parcelas_df["status"].isin(st.session_state.dash_status_selecionado))
+            (parcelas_df["status"].isin(st.session_state.dash_status_selecionado)) &
+            (parcelas_df["classificacao"].isin(st.session_state.dash_classificacao_selecionada))
         ]
 
         df_mensal = parcelas_df[
+            (parcelas_df["ano"].isin(st.session_state.dash_ano_selecionado)) &
+            (parcelas_df["contrato"].isin(st.session_state.dash_contrato_selecionado)) &
+            (~parcelas_df["contrato"].str.startswith("HCOMPANY")) &
+            (parcelas_df["tipo"].isin(st.session_state.dash_tipo_selecionado)) &
+            (parcelas_df["estabelecimento"].isin(st.session_state.dash_estabelecimento_selecionado)) &
+            (parcelas_df["status"].isin(st.session_state.dash_status_selecionado)) &
+            (parcelas_df["classificacao"].isin(st.session_state.dash_classificacao_selecionada))
+        ]
+
+        df_hcompany = parcelas_df[
             (parcelas_df["ano"].isin(st.session_state.dash_ano_selecionado)) &
             (parcelas_df["contrato"].isin(st.session_state.dash_contrato_selecionado)) &
             (parcelas_df["tipo"].isin(st.session_state.dash_tipo_selecionado)) &
@@ -169,7 +191,7 @@ def show_dashboard():
                     fig_bar_estabelecimento = plot_total_estabelecimento_bar(df_filtrado)
                     st.plotly_chart(fig_bar_estabelecimento, use_container_width=True)
                 with sub_col2, st.container(border=True):
-                    fig_pie_estabelecimento = plot_pizza_estabelecimentos(df_filtrado)
+                    fig_pie_estabelecimento = plot_classificacao(df_filtrado)
                     st.plotly_chart(fig_pie_estabelecimento, use_container_width=True)
             else:
                 st.info("Nenhum dado de estabelecimento para exibir com os filtros atuais.")
@@ -184,7 +206,7 @@ def show_dashboard():
                     st.info("Nenhum dado para o Top 10 Prestadores com os filtros atuais.")
 
             with st.container(border=True):
-                fig_fat_hcompany = plot_faturamento_hcompany(df_mensal, st.session_state.dash_ano_selecionado)
+                fig_fat_hcompany = plot_faturamento_hcompany(df_hcompany, st.session_state.dash_ano_selecionado)
                 st.plotly_chart(fig_fat_hcompany, use_container_width=True)
 
     with tab_gantt:

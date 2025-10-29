@@ -120,7 +120,7 @@ def home():
         (df["status"] == (st.session_state.home_status_selecionado))
     ]
 
-    df_show = df_filter.drop(columns=["data_lancamento", 'documento', "mes_nome", "situacao", "contrato_id", "id", 'mes', 'data_vencimento', 'referente']) if "ABERTO" in st.session_state.home_status_selecionado else df_filter.drop(columns=['mes', 'data_emissao', 'situacao', 'id', 'contrato_id', 'status','mes_nome'])
+    df_show = df_filter.drop(columns=["data_lancamento", 'documento', "mes_nome", "classificacao", "situacao", "contrato_id", "id", 'mes', 'data_vencimento', 'referente']) if "ABERTO" in st.session_state.home_status_selecionado else df_filter.drop(columns=['mes','classificacao', 'data_emissao', 'situacao', 'id', 'contrato_id', 'status','mes_nome'])
 
     st.dataframe(df_show, column_config={
         "ano": st.column_config.TextColumn("Ano", width="small"),
