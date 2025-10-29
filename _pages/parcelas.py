@@ -105,10 +105,10 @@ def home():
             b_col2.button("Limpar", on_click=limpar_selecao, args=('home_contrato_selecionado',), key='home_btn_limpar_contratos')
 
         with col4:
-            st.radio("Status", options=status_disponiveis, key='home_status_selecionado')
+            st.segmented_control("Status", options=status_disponiveis, key='home_status_selecionado', default='ABERTO')
         
         with col5:
-            st.radio("Situação", options=situacao_disponiveis, key='home_situacao_selecionado')
+            st.segmented_control("Situação", options=situacao_disponiveis, key='home_situacao_selecionado', default='ATIVO')
 
 
     # --- Aplicação dos Filtros e Exibição do DataFrame ---
@@ -120,12 +120,10 @@ def home():
         (df["status"] == (st.session_state.home_status_selecionado))
     ]
 
-    df_show = df_filter.drop(columns=["data_lancamento", 'documento', "mes_nome", "situacao", "contrato_id"]) if "ABERTO" in st.session_state.home_status_selecionado else df_filter.drop(columns=["mes_nome"])
+    df_show = df_filter.drop(columns=["data_lancamento", 'documento', "mes_nome", "situacao", "contrato_id", "id", 'mes', 'data_vencimento', 'referente']) if "ABERTO" in st.session_state.home_status_selecionado else df_filter.drop(columns=['mes', 'data_emissao', 'situacao', 'id', 'contrato_id', 'status','mes_nome'])
 
     st.dataframe(df_show, column_config={
-        "id": st.column_config.TextColumn("ID", width="small"),
         "ano": st.column_config.TextColumn("Ano", width="small"),
-        "mes": st.column_config.TextColumn("Mês", width="small"),
         "data_lancamento": st.column_config.DateColumn("Data de Lançamento", format="DD/MM/YY", width="small"),
         "data_emissao": st.column_config.DateColumn("Emissão", format="DD/MM", width="small"),
         "data_vencimento": st.column_config.DateColumn("Vencimento", format="DD/MM", width="small"),

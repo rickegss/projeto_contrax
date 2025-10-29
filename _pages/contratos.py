@@ -41,18 +41,27 @@ def contratos():
 
         for i, (key, label, col_name) in enumerate(filter_config):
             with cols[i]:
-                if st.button(f"Todos/Nenhum", key=f"btn_{key}"):
-                    st.session_state[f"toggle_{key}"] = not st.session_state[f"toggle_{key}"]
+                if key != "situacao":
+                    if st.button(f"Todos/Nenhum", key=f"btn_{key}"):
+                        st.session_state[f"toggle_{key}"] = not st.session_state[f"toggle_{key}"]
                 
                 options = df[col_name].dropna().unique()
                 default_value = list(options) if st.session_state[f"toggle_{key}"] else []
                 
-                selections[key] = st.multiselect(
-                    label,
-                    options=options,
-                    default=default_value,
-                    key=f"ms_{key}"
-                )
+                if key in ["situacao"] :
+                    selections[key] = st.segmented_control(
+                        label,
+                        default="ATIVO",
+                        options=options,
+                        key=f"ms_{key}"
+                    )
+                else:
+                    selections[key] = st.multiselect(
+                        label,
+                        options=options,
+                        default=default_value,
+                        key=f"ms_{key}"
+                    )
         return selections
 
     def new_contract(df):
@@ -67,15 +76,15 @@ def contratos():
                 contrato = contrato.upper()
                 cnpj = st.text_input("CNPJ")
                 numero_contrato = st.text_input("Número do Contrato")
-                estabelecimento = st.radio("Estabelecimento", options=(df["estabelecimento"].dropna().unique()))
+                estabelecimento = st.segmented_control("Estabelecimento", options=(df["estabelecimento"].dropna().unique()))
                 valor_contrato = st.number_input("Valor do Contrato R$", format="%.2f", step=1.0, min_value=1.0)
                 duracao = st.number_input("Duração do contrato (meses)", format="%d", min_value=1)
                 conta = st.number_input("Conta", step=1.0)
                 conta = str(float(conta))
                 centro_custo = st.number_input("Centro de Custo", step=1.0)
                 centro_custo = str(float(centro_custo))
-                classificacao = st.radio("Classificação", options=df["classificacao"].dropna().unique())  
-                categoria = st.radio("Categoria", options=df["categoria"].dropna().unique())
+                classificacao = st.segmented_control("Classificação", options=df["classificacao"].dropna().unique())  
+                categoria = st.segmented_control("Categoria", options=df["categoria"].dropna().unique())
                 data_inicio = st.date_input("Data de Início", value=datetime.now().date())
                 valor_parcela = valor_contrato / duracao
                 duracao_delta = relativedelta(months=duracao)
@@ -364,8 +373,6 @@ def contratos():
         filter_config = [
             ("situacao", "Situação", "situacao"),
             ("contrato", "Contrato", "contrato"),
-            ("conta", "Conta", "conta"),
-            ("centro_custo", "Centro de Custo", "centro_custo"),
             ("estabelecimento", "Estabelecimento", "estabelecimento"),
             ("classificacao", "Classificação", "classificacao"),
         ]
@@ -379,16 +386,13 @@ def contratos():
         with ti:
             st.title("Prestadores de Contratos")
         st.divider()
-        st.header("Filtros")
-
-        selections = show_filters(contratos, filter_config)
+        with st.expander("Filtros de Contratos", expanded=True):
+          selections = show_filters(contratos, filter_config)
 
         query_parts = []
         filter_map = {
             "situacao": "`situacao` in @selections['situacao']",
             "contrato": "`contrato` in @selections['contrato']",
-            "conta": "`conta` in @selections['conta']",
-            "centro_custo": "`centro_custo` in @selections['centro_custo']",
             "estabelecimento": "`estabelecimento` in @selections['estabelecimento']",
             "classificacao": "`classificacao` in @selections['classificacao']",
         }
@@ -402,14 +406,12 @@ def contratos():
             query_string = " & ".join(query_parts)
             contratos_filtrado = contratos.query(query_string)
 
-        st.divider()
-        st.header("Contratos")
+        contratos_filtrado = contratos_filtrado.drop(columns=["id", 'categoria'])
         st.dataframe(
             contratos_filtrado,
             hide_index=True,
             width='stretch',
             column_config={
-                "id": st.column_config.TextColumn("ID", width="small"),
                 "situacao": st.column_config.TextColumn("Situação", width="small"),
                 "numero": st.column_config.TextColumn("Número", width="small"),
                 "contrato": st.column_config.TextColumn("Contrato", width="small"),
@@ -417,7 +419,6 @@ def contratos():
                 "centro_custo": st.column_config.TextColumn("Centro de Custo", width="small"),
                 "estabelecimento": st.column_config.TextColumn("Estabelecimento", width="small"),
                 "classificacao": st.column_config.TextColumn("Classificação", width="small"),
-                "categoria": st.column_config.TextColumn("Categoria", width="small"),
                 "descricao": st.column_config.TextColumn("Descrição", width="small"),
                 "cnpj": st.column_config.TextColumn("CNPJ", width="small"),
                 "anexos": st.column_config.TextColumn("Anexos", width="small"),

@@ -162,7 +162,6 @@ def show_dashboard():
                 else:
                     st.info("Nenhum dado de despesa mensal para exibir com os filtros atuais.")
             
-            st.divider()
 
             if not df_filtrado.empty:
                 sub_col1, sub_col2 = st.columns(2)
@@ -184,7 +183,6 @@ def show_dashboard():
                 else:
                     st.info("Nenhum dado para o Top 10 Prestadores com os filtros atuais.")
 
-            st.divider()
             with st.container(border=True):
                 fig_fat_hcompany = plot_faturamento_hcompany(df_mensal, st.session_state.dash_ano_selecionado)
                 st.plotly_chart(fig_fat_hcompany, use_container_width=True)
