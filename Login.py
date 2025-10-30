@@ -3,7 +3,7 @@ from _pages.parcelas import main
 
 st.set_page_config(
         page_title="ContraX - Login",
-        page_icon="https://images.vexels.com/media/users/3/224235/isolated/preview/c9b0be525cc3bace6e7e91667d7d6bb0-orange-abstract-logo.png",
+        page_icon="logo\ContraX_Favicon.png",
         layout="centered",
     )
 
