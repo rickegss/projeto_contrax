@@ -9,10 +9,12 @@ def show_stats(df, coluna_valor):
     total = df[coluna_valor].sum()
 
     def formata_val(valor):
-        import locale
-        locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
-        valor_format = locale.format_string("%.2f", valor, grouping=True)
-        return valor_format
+        if valor is None:
+            return "0,00"
+        val_str = f"{valor:,.2f}"
+        val_str_br = val_str.replace(",", "X").replace(".", ",").replace("X", ".")
+        return val_str_br
+
 
     colun1, colun2 = st.columns(2)
 
