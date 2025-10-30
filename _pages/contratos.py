@@ -4,6 +4,36 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from supabase import create_client, Client
 
+def show_stats(df, coluna_valor):
+    count = len(df)
+    total = df[coluna_valor].sum()
+
+    def formata_val(valor):
+        import locale
+        locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+        valor_format = locale.format_string("%.2f", valor, grouping=True)
+        return valor_format
+
+    colun1, colun2 = st.columns(2)
+
+    with colun1:
+        st.markdown(f"""
+        <div style='width: 100%; text-align: left;'>
+            <div style='display: inline-block; border: 2px solid; padding: 3px 10px; border-radius: 25px; font-size: 15px; width: 20%;'>
+                Contagem: {count}
+            </div>
+        </div>    
+        """, unsafe_allow_html=True)
+
+    with colun2:
+        st.markdown(f"""
+        <div style='width: 100%; text-align: right;'>
+            <div style='display: inline-block; border: 2px solid; padding: 3px 10px; border-radius: 25px; font-size: 15px; width: 25%;'>
+                Total: R$ {formata_val(total)}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
 
 def contratos():
     url = st.secrets["connections"]["supabase"]["SUPABASE_URL"]
@@ -27,42 +57,76 @@ def contratos():
         df = pd.DataFrame(all_data)
         return df
 
-    def initialize_state(filters):
+    def initialize_state(df, filters):
         if "initialized_contratos" in st.session_state:
             return
         
         st.session_state.initialized_contratos = True
         for key in filters:
             st.session_state[f"toggle_{key}"] = True
+        
+            if f'contratos_{key}_selecionado' not in st.session_state:
+                if key in ['contrato', 'estabelecimento', 'classificacao']:
+                    st.session_state[f'contratos_{key}_selecionado'] = df[key].dropna().sort_values().unique().tolist()
+                elif key == 'pedido':
+                    st.session_state[f'contratos_pedido_selecionado'] = ['Contrato']
+
+        if 'contratos_situacao_selecionado' not in st.session_state:
+            st.session_state[f'contratos_situacao_selecionado'] = ["ATIVO"]
+
 
     def show_filters(df, filter_config):
+        from .parcelas import selecionar_todos, limpar_selecao
         cols = st.columns(len(filter_config))
-        selections = {}
+        with cols[0]:
+            st.multiselect(
+                "Situação", 
+                options=df["situacao"].dropna().unique(), 
+                key='contratos_situacao_selecionado'
+            )
+            b_col1, b_col2 = st.columns(2)
+            b_col1.button("Todos", on_click=selecionar_todos, args=('contratos_situacao_selecionado', df["situacao"].dropna().unique().tolist()), key='contratos_todos_situacao')
+            b_col2.button("Limpar", on_click=limpar_selecao, args=('contratos_situacao_selecionado',), key='contratos_limpar_situacao')
+        
+        with cols[1]:
+            st.multiselect(
+                "Contratos", 
+                options=df["contrato"].dropna().unique(), 
+                key='contratos_contrato_selecionado'
+            )
+            b_col1, b_col2 = st.columns(2)
+            b_col1.button("Todos", on_click=selecionar_todos, args=('contratos_contrato_selecionado', df["contrato"].dropna().unique().tolist()), key='contratos_todos_contrato')
+            b_col2.button("Limpar", on_click=limpar_selecao, args=('contratos_contrato_selecionado',), key='contratos_limpar_contrato')
 
-        for i, (key, label, col_name) in enumerate(filter_config):
-            with cols[i]:
-                if key != "situacao":
-                    if st.button(f"Todos/Nenhum", key=f"btn_{key}"):
-                        st.session_state[f"toggle_{key}"] = not st.session_state[f"toggle_{key}"]
-                
-                options = df[col_name].dropna().unique()
-                default_value = list(options) if st.session_state[f"toggle_{key}"] else []
-                
-                if key in ["situacao"] :
-                    selections[key] = st.segmented_control(
-                        label,
-                        default="ATIVO",
-                        options=options,
-                        key=f"ms_{key}"
-                    )
-                else:
-                    selections[key] = st.multiselect(
-                        label,
-                        options=options,
-                        default=default_value,
-                        key=f"ms_{key}"
-                    )
-        return selections
+        with cols[2]:
+            st.multiselect(
+                "Estabelecimento", 
+                options=df["estabelecimento"].dropna().unique(), 
+                key='contratos_estabelecimento_selecionado'
+            )
+            b_col1, b_col2 = st.columns(2)
+            b_col1.button("Todos", on_click=selecionar_todos, args=('contratos_estabelecimento_selecionado', df["estabelecimento"].dropna().unique().tolist()), key='contratos_todos_estabelecimento')
+            b_col2.button("Limpar", on_click=limpar_selecao, args=('contratos_estabelecimento_selecionado',), key='contratos_limpar_estabelecimento')
+
+        with cols[3]:
+            st.multiselect(
+                "Classificação", 
+                options=df["classificacao"].dropna().unique(), 
+                key='contratos_classificacao_selecionado'
+            )
+            b_col1, b_col2 = st.columns(2)
+            b_col1.button("Todos", on_click=selecionar_todos, args=('contratos_classificacao_selecionado', df["classificacao"].dropna().unique().tolist()), key='contratos_todos_classificacao')
+            b_col2.button("Limpar", on_click=limpar_selecao, args=('contratos_classificacao_selecionado',), key='contratos_limpar_classificacao')
+
+        with cols[4]:
+            st.multiselect(
+                "Contrato/Pedido", 
+                options=["Contrato", "Pedido"], 
+                key='contratos_pedido_selecionado'
+            )
+            b_col1, b_col2 = st.columns(2)
+            b_col1.button("Todos", on_click=selecionar_todos, args=('contratos_pedido_selecionado', ["Contrato", "Pedido"]), key='contratos_todos_pedido')
+            b_col2.button("Limpar", on_click=limpar_selecao, args=('contratos_pedido_selecionado',), key='contratos_limpar_pedido')
 
     def new_contract(df):
 
@@ -371,14 +435,15 @@ def contratos():
         contratos = load_data("contratos")
 
         filter_config = [
-            ("situacao", "Situação", "situacao"),
-            ("contrato", "Contrato", "contrato"),
-            ("estabelecimento", "Estabelecimento", "estabelecimento"),
-            ("classificacao", "Classificação", "classificacao"),
+            ("situacao"),
+            ("contrato"),
+            ("estabelecimento"),
+            ("classificacao"),
+            ("pedido")
         ]
         
-        filter_keys = [f[0] for f in filter_config]
-        initialize_state(filter_keys)
+        filter_keys = [f for f in filter_config]
+        initialize_state(contratos, filter_keys)
 
         im, ti = st.columns([0.05, 0.95])
         with im:
@@ -387,26 +452,25 @@ def contratos():
             st.title("Prestadores de Contratos")
         st.divider()
         with st.expander("Filtros de Contratos", expanded=True):
-          selections = show_filters(contratos, filter_config)
-
-        query_parts = []
-        filter_map = {
-            "situacao": "`situacao` in @selections['situacao']",
-            "contrato": "`contrato` in @selections['contrato']",
-            "estabelecimento": "`estabelecimento` in @selections['estabelecimento']",
-            "classificacao": "`classificacao` in @selections['classificacao']",
-        }
+          show_filters(contratos, filter_config)
         
-        for key, selection in selections.items():
-            if selection:
-                query_parts.append(filter_map[key])
-        
-        contratos_filtrado = contratos
-        if query_parts:
-            query_string = " & ".join(query_parts)
-            contratos_filtrado = contratos.query(query_string)
+        contratos_filtrado = contratos[
+            (contratos["situacao"].isin(st.session_state.contratos_situacao_selecionado)) &
+            (contratos["contrato"].isin(st.session_state.contratos_contrato_selecionado)) &
+            (contratos["estabelecimento"].isin(st.session_state.contratos_estabelecimento_selecionado)) &
+            (contratos["classificacao"].isin(st.session_state.contratos_classificacao_selecionado)) 
+        ]
+        if st.session_state.contratos_pedido_selecionado == ["Pedido"]:
+            contratos_filtrado = contratos_filtrado[
+                (contratos_filtrado["numero"] == "PEDIDO")
+        ]
+        elif st.session_state.contratos_pedido_selecionado == ['Contrato']:
+            contratos_filtrado = contratos_filtrado[
+                (contratos_filtrado["numero"] != "PEDIDO")
+            ]
 
-        contratos_filtrado = contratos_filtrado.drop(columns=["id", 'categoria'])
+
+        contratos_filtrado = contratos_filtrado.drop(columns=["id", 'categoria', 'inicio'])
         st.dataframe(
             contratos_filtrado,
             hide_index=True,
@@ -423,11 +487,12 @@ def contratos():
                 "cnpj": st.column_config.TextColumn("CNPJ", width="small"),
                 "anexos": st.column_config.TextColumn("Anexos", width="small"),
                 "valor_contrato": st.column_config.NumberColumn("Valor do Contrato", format='R$ %.2f'),
-                "inicio": st.column_config.DateColumn("Início", format="DD/MM/YY"),
                 "termino": st.column_config.DateColumn("Término", format="DD/MM/YY")                
             }
         )
 
+
+        show_stats(contratos_filtrado, "valor_contrato")
         st.divider()
         tabs_show()
 

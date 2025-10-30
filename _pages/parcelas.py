@@ -4,7 +4,7 @@ import pandas as pd
 from utils.stamp import now, mes_atual, ano_atual, data_lanc, mes_dict
 from utils.pdf_extractor import extract_pdf 
 from supabase import create_client, Client
-from _pages.contratos import contratos
+from _pages.contratos import contratos, show_stats
 from _pages.dashboard import show_dashboard
 import base64
 
@@ -39,6 +39,13 @@ def load_data(table_name):
             df['mes_nome'] = df['mes'].apply(lambda x: month_display_map.get(x, f'Mês {x}'))
 
     return df
+
+# Funções de callback para os botões "Todos" e "Limpar"
+def selecionar_todos(chave_estado, opcoes):
+    st.session_state[chave_estado] = opcoes
+
+def limpar_selecao(chave_estado):
+    st.session_state[chave_estado] = []
 
 def home():
     st.set_page_config(
@@ -76,13 +83,6 @@ def home():
         if "home_situacao_selecionado" not in st.session_state:
             st.session_state.home_situacao_selecionado = 'ATIVO'
 
-        # Funções de callback para os botões "Todos" e "Limpar"
-        def selecionar_todos(chave_estado, opcoes):
-            st.session_state[chave_estado] = opcoes
-
-        def limpar_selecao(chave_estado):
-            st.session_state[chave_estado] = []
-
 
         # Layout dos filtros em colunas
         col1, col2, col3, col4, col5 = st.columns(5)
@@ -105,10 +105,10 @@ def home():
             b_col2.button("Limpar", on_click=limpar_selecao, args=('home_contrato_selecionado',), key='home_btn_limpar_contratos')
 
         with col4:
-            st.segmented_control("Status", options=status_disponiveis, key='home_status_selecionado', default='ABERTO')
+            st.segmented_control("Status", options=status_disponiveis, key='home_status_selecionado')
         
         with col5:
-            st.segmented_control("Situação", options=situacao_disponiveis, key='home_situacao_selecionado', default='ATIVO')
+            st.segmented_control("Situação", options=situacao_disponiveis, key='home_situacao_selecionado')
 
 
     # --- Aplicação dos Filtros e Exibição do DataFrame ---
@@ -135,6 +135,8 @@ def home():
         "status": st.column_config.TextColumn("Status", width="small"),
         "valor": st.column_config.NumberColumn("Valor da Parcela", format='R$ %.2f')
     }, hide_index=True)
+
+    show_stats(df_show, "valor")
 
     st.divider()
 
