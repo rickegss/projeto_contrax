@@ -50,7 +50,7 @@ def limpar_selecao(chave_estado):
 def home():
     st.set_page_config(
     page_title="ContraX",
-    page_icon='logo\ContraX_Favicon.png',
+    page_icon='logo/ContraX_Favicon.png',
     layout="wide",
     )
 
@@ -369,9 +369,9 @@ def main():
     """
     logo1, logo2 = st.columns([0.2, 1])
     with logo1:
-         st.image("logo\ContraX_Logo.png", width=240, caption="Gestão de Contratos")
+         st.image("logo/ContraX_Logo.png", width=240, caption="Gestão de Contratos")
     with logo2:
-         st.image("logo\hcompany_branco_intranet.png", width=200)
+         st.image("logo/hcompany_branco_intranet.png", width=200)
 
     tab_lancamentos, tab_contratos, tab_dashboard = st.tabs([" Lançamentos ", " Contratos ", " Dashboard "])
 
