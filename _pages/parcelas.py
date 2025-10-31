@@ -6,8 +6,7 @@ from utils.pdf_extractor import extract_pdf
 from supabase import create_client, Client
 from _pages.contratos import contratos, show_stats
 from _pages.dashboard import show_dashboard
-import base64
-
+from dateutil.relativedelta import relativedelta
 
 # --- Conexão com o Supabase ---
 url = st.secrets["connections"]["supabase"]["SUPABASE_URL"]
@@ -142,8 +141,8 @@ def home():
 
         st.divider()
 
-        tab_lancar, tab_modificar, tab_duplicar, tab_excluir = st.tabs([
-            " Lançar Parcela ", " Modificar / Reverter ", " Duplicar Parcela ", " Excluir Parcela "
+        tab_lancar, tab_modificar, tab_adicionar, tab_excluir = st.tabs([
+            " Lançar Parcela ", " Modificar / Reverter ", " Adicionar Parcela ", " Excluir Parcela "
         ])
 
 
@@ -212,163 +211,151 @@ def home():
                             except Exception as e:
                                 st.error(f"Ocorreu um erro inesperado: {e}", icon="❌")
 
+    except:
+        st.error("Não foi possível carregar a tabela", icon="❌")
 
 
     # --- Aba 2: Modificar / Reverter ---
-            with tab_modificar:
-                col_mod, col_rev = st.columns(2)
-                with col_mod:
-                    st.subheader("Alterar Lançamento")
-                    filtro_modificar = (df["ano"] == df_filter["ano"].iloc[0]) & (df["mes"] == df_filter["mes"].iloc[0]) & (df["status"] == 'LANÇADO')
-                    df_modificar = df[filtro_modificar].sort_values(by="contrato", ascending=True)
-                    contratos_modificar = df_modificar["contrato"].dropna().unique()
+    with tab_modificar:
+        col_mod, col_rev = st.columns(2)
+        with col_mod:
+            st.subheader("Alterar Lançamento")
+            filtro_modificar = (df["ano"] == df_filter["ano"].iloc[0]) & (df["mes"] == df_filter["mes"].iloc[0]) & (df["status"] == 'LANÇADO')
+            df_modificar = df[filtro_modificar].sort_values(by="contrato", ascending=True)
+            contratos_modificar = df_modificar["contrato"].dropna().unique()
 
-                    contrato_mod = st.selectbox("Contrato a modificar parcela:", options=contratos_modificar)
-                    parcelas_modificar = df[(df["contrato"] == contrato_mod) & (df['status'] == 'LANÇADO') & (df["mes"] == df_filter["mes"].iloc[0]) & (df["ano"] == df_filter["ano"].iloc[0])]
+            contrato_mod = st.selectbox("Contrato a modificar parcela:", options=contratos_modificar)
+            parcelas_modificar = df[(df["contrato"] == contrato_mod) & (df['status'] == 'LANÇADO') & (df["mes"] == df_filter["mes"].iloc[0]) & (df["ano"] == df_filter["ano"].iloc[0])]
 
-                    opcoes_mod = [f"{row['id']} | {row['contrato']} | N° {row['documento']} | R$ {row['valor']}" for index, row in parcelas_modificar.iterrows()]
-                    parcela_mod = st.radio("Parcela a modificar:", options=opcoes_mod, key="radio_mod_parcela")
+            opcoes_mod = [f"{row['id']} | {row['contrato']} | N° {row['documento']} | R$ {row['valor']}" for index, row in parcelas_modificar.iterrows()]
+            parcela_mod = st.radio("Parcela a modificar:", options=opcoes_mod, key="radio_mod_parcela")
 
-                    id_parcela_mod = int(parcela_mod.split(" | ")[0])
-                    parcela_original = df_modificar[df_modificar['id'] == id_parcela_mod]
+            id_parcela_mod = int(parcela_mod.split(" | ")[0])
+            parcela_original = df_modificar[df_modificar['id'] == id_parcela_mod]
 
-                    novo_valor = st.number_input("Valor R$", value=parcela_original["valor"].iloc[0], format="%.2f", step=1.0, min_value=0.01)
-                    novo_doc = st.text_input("N° Documento", value=parcela_original["documento"].iloc[0])
+            novo_valor = st.number_input("Valor R$", value=parcela_original["valor"].iloc[0], format="%.2f", step=1.0, min_value=0.01)
+            novo_doc = st.text_input("N° Documento", value=parcela_original["documento"].iloc[0])
 
-                    with st.form("form_alterar", clear_on_submit=True):
-                        if st.form_submit_button("Confirmar Alteração"):
-                            if (novo_valor is None or not novo_doc):
-                                st.warning("Preencha número do documento e valor.", icon="🚨")
-                                
-                            else:
-                                data_atualizar = {}
-                                if novo_valor is not None and novo_valor > 0: 
-                                    data_atualizar["valor"] = novo_valor
-                                    
-                                if novo_doc:
-                                    data_atualizar["documento"] = novo_doc
-                                
-                                if data_atualizar:
-                                    res = supabase.table("parcelas").update(data_atualizar).eq("id", id_parcela_mod).execute()
-
-                                    if res.data:
-                                        st.success("Parcela atualizada com sucesso! ✅")
-                                        st.cache_data.clear()
-                                        st.rerun()
-                                    else: st.error("ID não encontrado ou falha na atualização.", icon="❌")
-                                    
-                                else:
-                                    st.warning("Nenhum dado válido fornecido para a atualização.", icon="🚨")
-
-                with col_rev:
-                    with st.form("form_reverter", clear_on_submit=True):
-                        st.subheader("Desfazer Lançamento")
-                        st.text("Clique no botão abaixo para cancelar o lançamento da parcela:")
-
-                        if st.form_submit_button("Cancelar Lançamento"):
-                            if id_parcela_mod:
-                                update_data = {"valor": None, "documento": None, "data_lancamento": None, "status": "ABERTO"}
-                                res = supabase.table("parcelas").update(update_data).eq("id", id_parcela_mod).execute()
-                                if res.data:
-                                    st.success("Parcela revertida com sucesso! ✅")
-                                    st.cache_data.clear()
-                                    st.rerun()
-                                else:
-                                    st.error("ID não encontrado ou falha ao reverter.", icon="❌")
-                            else:
-                                st.warning("Por favor, insira um ID para reverter.", icon="🚨")
-
-
-            # --- Aba 3: Duplicar Parcela ---
-            with tab_duplicar:
-                st.subheader("Duplicar Parcela de Contrato")
-                filtro_contratos = (df['mes'] == df_filter['mes'].iloc[0]) & (df['ano'] == df_filter['ano'].iloc[0]) & (df['situacao'] == 'ATIVO')
-
-                contratos_duplicaveis = df.loc[filtro_contratos, 'contrato'].dropna().unique()
-
-                if contratos_duplicaveis.size == 0:
-                    st.warning("Não há contratos com parcelas no período atual para duplicar.", icon="🚨")
-                else:
-                    contrato_dup = st.selectbox('Selecione o Contrato:', options=contratos_duplicaveis, key="select_dup_contrato")
-                    df_abertas = df[(df['contrato'] == contrato_dup) & (df['situacao'] == 'ATIVO') & (df["mes"] == df_filter['mes'].iloc[0]) & (df['ano'] == df_filter['ano'].iloc[0])]
-                    
-                    if df_abertas.empty:
-                        st.info("Não há parcelas disponíveis para este contrato.")
+            with st.form("form_alterar", clear_on_submit=True):
+                if st.form_submit_button("Confirmar Alteração"):
+                    if (novo_valor is None or not novo_doc):
+                        st.warning("Preencha número do documento e valor.", icon="🚨")
+                        
                     else:
-                        opcoes_dup = [f"{row['id']} | {row['contrato']} | {row['referente']}" for index, row in df_abertas.iterrows()]
-
-                        with st.form('form_duplicar', clear_on_submit=True):
-                            parcela_dup = st.radio("Parcela a duplicar:", options=opcoes_dup, key="radio_dup_parcela")
-                            qtd_dup = st.number_input('Adicionar quantas parcelas?:', min_value=1, value=1, step=1)
+                        data_atualizar = {}
+                        if novo_valor is not None and novo_valor > 0: 
+                            data_atualizar["valor"] = novo_valor
                             
-                            if st.form_submit_button('Confirmar Duplicação'):
-                                if not parcela_dup:
-                                    st.error("Nenhuma parcela foi selecionada.", icon="❌")
-                                else:
-                                    try:
-                                        id_parcela_dup = int(parcela_dup.split(" | ")[0])
-                                        parcela_original_df = df_abertas[df_abertas['id'] == id_parcela_dup]
+                        if novo_doc:
+                            data_atualizar["documento"] = novo_doc
+                        
+                        if data_atualizar:
+                            res = supabase.table("parcelas").update(data_atualizar).eq("id", id_parcela_mod).execute()
 
-                                        if parcela_original_df.empty:
-                                            st.error("ID não encontrado. Verifique na tabela acima e tente novamente.", icon="❌")
-                                        else:
-                                            parcela = parcela_original_df.iloc[0].to_dict()
-                                            duplicatas = []
-                                            campos_para_remover = ['id', 'data_lancamento', 'mes_nome']
-                                            
-                                            for _ in range(qtd_dup):
-                                                new_dup = parcela.copy()
-                                                for campo in campos_para_remover: new_dup.pop(campo, None)
-                                                for k, v in new_dup.items():
-                                                    if pd.isna(v):
-                                                        new_dup[k] = None
-                                                    elif isinstance(v, pd.Timestamp):
-                                                        new_dup[k] = v.isoformat()
-                                                new_dup.update({
-                                                    'status': 'ABERTO',
-                                                    'valor': None,
-                                                    'documento': None
-                                                })
-
-                                                duplicatas.append(new_dup)
-
-                                            supabase.table("parcelas").insert(duplicatas).execute()
-                                            st.success(f"{qtd_dup} parcela(s) duplicada(s) com sucesso! ✅")
-                                            time.sleep(0.7)
-                                            st.cache_data.clear()
-                                            st.rerun()
-
-                                    except ValueError as e:
-                                        st.error(f"ID inválido. Por favor, insira um número de ID válido. Erro: {e}", icon="❌")
-                                    except Exception as e:
-                                        st.error(f"Falha na duplicação. Erro: {e}", icon="❌")
-
-
-            # --- Aba 4: Excluir Parcela ---
-            with tab_excluir:
-                st.subheader("Excluir Parcela")
-                st.warning("Atenção: A exclusão é permanente e não pode ser desfeita.", icon="⚠️")
-                with st.form('form_excluir', clear_on_submit=True):
-                    id_exc = st.text_input('ID da linha para exclusão')
-                    
-                    if st.form_submit_button('Confirmar Exclusão', type="primary"):
-                        if id_exc:
-                            try:
-                                response = supabase.table("parcelas").delete().eq("id", id_exc).execute()
-                                if response.data:
-                                    st.success(f"Linha {id_exc} excluída com sucesso.")
-                                    time.sleep(0.7)
-                                    st.cache_data.clear()
-                                    st.rerun()
-                                else:
-                                    st.error("ID não encontrado. Verifique o ID e tente novamente.", icon="❌")
-                            except Exception as e:
-                                st.error(f"Ocorreu um erro ao excluir: {e}", icon="❌")
+                            if res.data:
+                                st.success("Parcela atualizada com sucesso! ✅")
+                                st.cache_data.clear()
+                                st.rerun()
+                            else: st.error("ID não encontrado ou falha na atualização.", icon="❌")
+                            
                         else:
-                            st.warning("Por favor, insira um ID para excluir.", icon="🚨")
+                            st.warning("Nenhum dado válido fornecido para a atualização.", icon="🚨")
 
-    except:
-        st.error("Não foi possível carregar a tabela", icon="❌")
+        with col_rev:
+            with st.form("form_reverter", clear_on_submit=True):
+                st.subheader("Desfazer Lançamento")
+                st.text("Clique no botão abaixo para cancelar o lançamento da parcela:")
+
+                if st.form_submit_button("Cancelar Lançamento"):
+                    if id_parcela_mod:
+                        update_data = {"valor": None, "documento": None, "data_lancamento": None, "status": "ABERTO"}
+                        res = supabase.table("parcelas").update(update_data).eq("id", id_parcela_mod).execute()
+                        if res.data:
+                            st.success("Parcela revertida com sucesso! ✅")
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error("ID não encontrado ou falha ao reverter.", icon="❌")
+                    else:
+                        st.warning("Por favor, insira um ID para reverter.", icon="🚨")
+
+
+    # --- Aba 3: Adicionar Parcela ---
+    with tab_adicionar:
+        st.subheader("Adicionar Parcela de Contrato")
+        filtro_contratos = ((df['situacao'] == 'ATIVO'))
+
+        contratos_ativos = df.loc[filtro_contratos, 'contrato'].dropna().unique()
+
+        if contratos_ativos.size == 0:
+            st.warning("Não há contratos ativos para adicionar.", icon="🚨")
+        else:
+            contrato_add = st.selectbox('Selecione o Contrato:', options=contratos_ativos, key="select_add_contrato")
+
+
+            with st.form('form_adicionar', clear_on_submit=True):
+                qtd_add = st.number_input('Adicionar quantas parcelas?:', min_value=1, value=1, step=1)
+                
+                if st.form_submit_button('Confirmar Adição'):
+                        try:
+                            add_data = {
+                                        "ano": ano_atual, 
+                                        "mes": mes_atual,
+                                        "data_lancamento": None,
+                                        "data_emissao": data_lanc.isoformat(),
+                                        "data_vencimento": (data_lanc + relativedelta(months=1)).isoformat(),
+                                        "tipo": df.loc[(df["contrato"] == contrato_add), 'tipo'].dropna().iloc[0],
+                                        "contrato": contrato_add,
+                                        "referente": df.loc[(df["contrato"] == contrato_add), 'referente'].dropna().iloc[0],
+                                        "documento": None,
+                                        "estabelecimento": df.loc[(df["contrato"] == contrato_add), 'estabelecimento'].dropna().iloc[0],
+                                        "status": "ABERTO",
+                                        "valor": None,
+                                        "situacao": "ATIVO"
+                                    }
+                            
+                            parcelas_to_add = []
+                            for _ in range(qtd_add):
+                                 parcelas_to_add.append(add_data)
+                            supabase.table("parcelas").insert(parcelas_to_add).execute()
+                            st.success(f"{qtd_add} parcela(s) adicionada(s) com sucesso! ✅")
+                            time.sleep(0.6)
+                            st.cache_data.clear()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro ao adicionar parcelas: {e}", icon="❌")
+
+
+    # --- Aba 4: Excluir Parcela ---
+    with tab_excluir:
+        st.subheader("Excluir Parcela")
+        st.warning("Atenção: A exclusão é permanente e não pode ser desfeita.", icon="⚠️")
+        contrato_exc = st.selectbox("Contrato a Excluir", options=df["contrato"].sort_values().dropna().unique())
+        ano_exc = st.selectbox("Filtrar por ano:", options=df["ano"].dropna().unique())
+        mes_exc = st.selectbox("Mês:", options=df["mes_nome"].dropna().unique())
+        df_excluir = df[(df["contrato"] == contrato_exc) & (df["mes_nome"] == mes_exc) & (df["ano"] == ano_exc)]
+        with st.form('form_excluir', clear_on_submit=True):
+            opcoes_exc = [f"{row['id']} | {row['ano']} | {row['mes_nome']} | {row['tipo']} | {row['contrato']} | {row['estabelecimento']} | {row['status']}| R$ {row['valor']}" for index, row in df_excluir.iterrows()]
+            parcela_exc = st.radio("Parcela a excluir:", options=opcoes_exc, key="radio_exc_parcela")
+            id_parcela_exc = int(parcela_exc.split(" | ")[0])
+            
+            if st.form_submit_button('Confirmar Exclusão', type="primary"):
+                if id_parcela_exc:
+                    try:
+                        response = supabase.table("parcelas").delete().eq("id", id_parcela_exc).execute()
+                        if response.data:
+                            st.success(f"Parcela {id_parcela_exc} excluída com sucesso.")
+                            time.sleep(0.7)
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error("Parcela não encontrada. Verifique e tente novamente.", icon="❌")
+                    except Exception as e:
+                        st.error(f"Ocorreu um erro ao excluir: {e}", icon="❌")
+                else:
+                    st.warning("Por favor, insira um ID para excluir.", icon="🚨")
+
+
         
 
 def main():
