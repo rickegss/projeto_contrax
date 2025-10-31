@@ -395,7 +395,7 @@ def contratos():
             st.warning(f"O contrato {contrato_renew} está vencido há {dias_vencido} dias.")
 
             with st.form("form_renovar_contrato", clear_on_submit=True):
-                dias_renovar = st.number_input("Renovar por quantos dias?", min_value=1, step=29)
+                dias_renovar = st.number_input("Renovar por quantos dias?", min_value=30, step=30)
 
                 if st.form_submit_button("Renovar Contrato", type="primary"):
                     renovacao = {
