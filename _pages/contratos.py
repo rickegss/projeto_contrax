@@ -150,7 +150,6 @@ def contratos():
                 centro_custo = st.number_input("Centro de Custo", step=1.0)
                 centro_custo = str(float(centro_custo))
                 classificacao = st.segmented_control("Classificação", options=df["classificacao"].dropna().unique())  
-                categoria = st.segmented_control("Categoria", options=df["categoria"].dropna().unique())
                 data_inicio = st.date_input("Data de Início", value=datetime.now().date())
                 valor_parcela = valor_contrato / duracao
                 duracao_delta = relativedelta(months=duracao)
@@ -173,61 +172,64 @@ def contratos():
                 st.divider()
 
                 if st.form_submit_button("Confirmar adição de contrato", type="secondary"):
-                    if duracao <= 0:
-                        st.error("A 'Duração do contrato (meses)' deve ser de pelo menos 1 mês.")
-                        return
+                    if any([
+                        not contrato, not numero_contrato, 
+                        not estabelecimento, not classificacao,
+                        valor_contrato <= 0, duracao <= 0, conta <= 0, centro_custo <= 0
+                    ]):
+                        st.error("Preencha todos os campos obrigatórios antes de continuar.", icon="🚨")
                     
-                    data_inicio = datetime.combine(data_inicio, datetime.min.time())
-                    data_termino = data_inicio + relativedelta(months=duracao, days=-1)
-                    valor_parcela = valor_contrato / duracao
+                    else:
+                        data_inicio = datetime.combine(data_inicio, datetime.min.time())
+                        data_termino = data_inicio + relativedelta(months=duracao, days=-1)
+                        valor_parcela = valor_contrato / duracao
 
-                    new_contrato = {
-                       "situacao": "ATIVO",
-                       "numero": numero_contrato,
-                       "contrato": contrato,
-                       "conta": conta,
-                       "centro_custo": centro_custo,
-                       "estabelecimento": estabelecimento,
-                       "classificacao": classificacao,
-                       "categoria": categoria,
-                       "cnpj": cnpj,
-                       "anexos": anexos_str,
-                       "valor_contrato": valor_contrato,
-                       "inicio": data_inicio.isoformat(),
-                       "termino": data_termino.isoformat(),
-                        }
-                    
-                    try:
-                        response = supabase.table("contratos").insert(new_contrato).execute()
-                        batch_parcelas = []
-                        new_id = response.data[0]["id"]
+                        new_contrato = {
+                        "situacao": "ATIVO",
+                        "numero": numero_contrato,
+                        "contrato": contrato,
+                        "conta": conta,
+                        "centro_custo": centro_custo,
+                        "estabelecimento": estabelecimento,
+                        "classificacao": classificacao,
+                        "cnpj": cnpj,
+                        "anexos": anexos_str,
+                        "valor_contrato": valor_contrato,
+                        "inicio": data_inicio.isoformat(),
+                        "termino": data_termino.isoformat(),
+                            }
+                        
+                        try:
+                            response = supabase.table("contratos").insert(new_contrato).execute()
+                            batch_parcelas = []
+                            new_id = response.data[0]["id"]
 
-                        for i in range(duracao):
-                            data_parcela = data_inicio + relativedelta(months=i)
+                            for i in range(duracao):
+                                data_parcela = data_inicio + relativedelta(months=i)
 
-                            batch_parcelas.append({
-                                "contrato_id": new_id,
-                                "situacao": "ATIVO",
-                                "ano": data_parcela.year,
-                                "mes": data_parcela.month,
-                                "data_emissao": data_parcela.isoformat(),
-                                "data_vencimento": (data_parcela + relativedelta(months=1)).isoformat(),       
-                                "tipo": "CONTRATO",
-                                "contrato": contrato,
-                                "referente": categoria,
-                                "estabelecimento": estabelecimento,
-                                "status": "ABERTO",
-                                "valor": valor_parcela,})
-                            print(f"{contrato} - parcela {i+1} adicionada")
+                                batch_parcelas.append({
+                                    "contrato_id": new_id,
+                                    "situacao": "ATIVO",
+                                    "ano": data_parcela.year,
+                                    "mes": data_parcela.month,
+                                    "data_emissao": data_parcela.isoformat(),
+                                    "data_vencimento": (data_parcela + relativedelta(months=1)).isoformat(),       
+                                    "tipo": "CONTRATO",
+                                    "contrato": contrato,
+                                    "referente": categoria,
+                                    "estabelecimento": estabelecimento,
+                                    "status": "ABERTO",
+                                    "valor": valor_parcela,})
+                                print(f"{contrato} - parcela {i+1} adicionada")
 
-                        supabase.table("parcelas").insert(batch_parcelas).execute()
+                            supabase.table("parcelas").insert(batch_parcelas).execute()
 
-                        st.success(f"Contrato adicionado! \n{len(batch_parcelas)} Parcelas criadas com sucesso!")
-                        st.cache_data.clear()
-                        st.rerun()
-                            
-                    except Exception as e:
-                        st.error(f"Erro ao criar contrato: {e}")
+                            st.success(f"Contrato adicionado! \n{len(batch_parcelas)} Parcelas criadas com sucesso!")
+                            st.cache_data.clear()
+                            st.rerun()
+                                
+                        except Exception as e:
+                            st.error(f"Erro ao criar contrato: {e}")
 
     def delete_contract(df):
         ccol2, = st.columns(1)
