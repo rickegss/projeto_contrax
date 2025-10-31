@@ -175,7 +175,7 @@ def contratos():
                     if any([
                         not contrato, not numero_contrato, 
                         not estabelecimento, not classificacao,
-                        valor_contrato <= 0, duracao <= 0, conta <= 0, centro_custo <= 0
+                        valor_contrato <= 0, duracao <= 0, conta == "0.0", centro_custo == "0.0"
                     ]):
                         st.error("Preencha todos os campos obrigatórios antes de continuar.", icon="🚨")
                     
