@@ -216,7 +216,8 @@ def contratos():
                                     "data_vencimento": (data_parcela + relativedelta(months=1)).isoformat(),       
                                     "tipo": "CONTRATO",
                                     "contrato": contrato,
-                                    "referente": categoria,
+                                    "classificacao": classificacao,
+                                    "referente": classificacao,
                                     "estabelecimento": estabelecimento,
                                     "status": "ABERTO",
                                     "valor": valor_parcela,})
