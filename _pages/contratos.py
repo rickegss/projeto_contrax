@@ -339,7 +339,6 @@ def contratos():
                 centro_custo = st.number_input("Centro de Custo", step=1.0, value=float(dict_dados["centro_custo"]))
                 centro_custo = str(float(centro_custo))
                 classificacao = st.selectbox("Classificação", options=df["classificacao"].dropna().unique(), index=list(df["classificacao"].dropna().unique()).index(dict_dados["classificacao"]))  
-                categoria = st.selectbox("Categoria", options=df["categoria"].dropna().unique(), index=df["categoria"].dropna().unique().tolist().index(dict_dados["categoria"]))
                 data_inicio = st.date_input("Data de Início", value=dict_dados["inicio"])
                 if duracao:
                     valor_parcela = valor_contrato / duracao
@@ -355,7 +354,6 @@ def contratos():
                         "conta": conta,
                         "centro_custo": centro_custo,
                         "classificacao": classificacao,
-                        "categoria": categoria,
                         "estabelecimento": estabelecimento,
                         "descricao": descricao,
                         "valor_contrato": valor_contrato,
@@ -472,7 +470,7 @@ def contratos():
             ]
 
 
-        contratos_filtrado = contratos_filtrado.drop(columns=["id", 'categoria', 'inicio'])
+        contratos_filtrado = contratos_filtrado.drop(columns=["id", 'inicio'])
         st.dataframe(
             contratos_filtrado,
             hide_index=True,
