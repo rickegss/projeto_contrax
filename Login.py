@@ -52,7 +52,7 @@ def check_password():
 
     with col2:
 
-            st.image("logo\ContraX_Logo.png", width=250)
+            st.image("logo/ContraX_Logo.png", width=250)
             st.title("Login")
             st.divider()
             st.subheader('Preencha suas credenciais:')
