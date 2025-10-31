@@ -129,11 +129,8 @@ def show_dashboard():
     Função principal que renderiza a página do Dashboard.
     """
 
-    im, ti = st.columns([0.05, 0.95])
-    with im:
-        st.image("https://cdn-icons-png.flaticon.com/512/4573/4573150.png", width=75)
-    with ti:
-        st.title("Dashboard")
+ 
+    st.title("Dashboard de Despesas")
     st.divider()
 
     tab_geral, tab_gantt = st.tabs(["Gastos e Faturamento", "Contratos Gantt"])
@@ -221,7 +218,7 @@ def show_dashboard():
             x_start="inicio", 
             x_end="termino", 
             y="contrato",   
-            color_discrete_sequence=px.colors.sequential.Viridis_r[8:],
+            color_discrete_sequence=px.colors.sequential.Viridis[2:],
             title="Cronograma de Vigência de Contratos",
             height=1400,
             width=1900

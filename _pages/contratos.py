@@ -447,11 +447,8 @@ def contratos():
         filter_keys = [f for f in filter_config]
         initialize_state(contratos, filter_keys)
 
-        im, ti = st.columns([0.05, 0.95])
-        with im:
-            st.image('https://cdn-icons-png.flaticon.com/256/2666/2666501.png', width=70)
-        with ti:
-            st.title("Prestadores de Contratos")
+     
+        st.title("Prestadores de Contratos")
         st.divider()
         with st.expander("Filtros de Contratos", expanded=True):
           show_filters(contratos, filter_config)

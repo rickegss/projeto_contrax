@@ -52,6 +52,7 @@ def check_password():
 
     with col2:
 
+            st.image("logo\ContraX_Logo.png", width=250)
             st.title("Login")
             st.divider()
             st.subheader('Preencha suas credenciais:')
@@ -65,6 +66,7 @@ def check_password():
                 else:
                     st.error("😕 Nome de usuário ou senha incorretos.")
             return False
+
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -81,3 +83,39 @@ else:
             st.toast("Você saiu com sucesso!")
             st.rerun()
     main()
+
+@st.cache_data  # Cache para melhorar a performance
+def img_to_base64(image_path):
+    import base64
+    from pathlib import Path
+
+    path = Path(image_path)
+    if not path.exists():
+        st.error(f"Caminho da imagem não encontrado: {image_path}")
+        return None
+    
+    try:
+        with path.open("rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except Exception as e:
+        st.error(f"Erro ao ler a imagem {image_path}: {e}")
+        return None
+    
+IMG_PATH = "logo/GHE_logo.png"
+img_base64 = img_to_base64(IMG_PATH)
+
+if img_base64:
+    footer_html = f"""
+    <div style="
+        text-align: center; 
+        padding-top: 15px; 
+        padding-bottom: 15px; 
+        border-top: 5px solid #ffffff;
+        border-radius: 5px;
+    ">
+        <img src="data:image/png;base64,{img_base64}" alt="logo" width="130">
+    </div>
+    """
+    st.markdown(footer_html, unsafe_allow_html=True)
+else:
+    st.warning("Não foi possível carregar a imagem do rodapé.")
