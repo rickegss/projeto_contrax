@@ -413,8 +413,8 @@ def contratos():
     
     def tabs_show():
         contratos = load_data("contratos")
-        tab_novo, tab_editar, tab_renovar, tab_desativar, tab_excluir = st.tabs([
-        "Novo Contrato", "Editar Contrato", "Renovar Contrato", "Desativar Contrato", "Excluir Contrato "])
+        tab_novo, tab_editar, tab_renovar, tab_desativar = st.tabs([
+        "Novo Contrato", "Editar Contrato", "Renovar Contrato", "Desativar Contrato"])
 
         with tab_novo:
             new_contract(contratos)
@@ -424,8 +424,8 @@ def contratos():
             renew_contract(contratos)
         with tab_desativar:
             active_deactive_contract(contratos)
-        with tab_excluir:
-            delete_contract(contratos)
+        # with tab_excluir:
+        #     delete_contract(contratos)
         
 
     def show():
