@@ -1,10 +1,101 @@
+import numpy as np
 import pandas as pd
 import streamlit as st
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from supabase import create_client, Client
+from src.utils.stamp import mes_dict, ano_atual
+import io
 
-def show_stats(df, coluna_valor):
+def relatorio_anual(df):
+    df['valor'] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
+    df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
+    df = df[df["ano"] == ano_atual].copy()
+    df = df[df["status"] == 'LANÇADO'].copy()
+
+    if "" not in df['contrato'].cat.categories:
+        df['contrato'] = df['contrato'].cat.add_categories([""])
+    
+    contratos_limpos = df['contrato'].fillna("")
+    contratos_match = contratos_limpos.str.upper().str.strip()
+
+    default_unificado = contratos_limpos.str.replace(r'\s+\d+$', '', regex=True)
+    df["contrato_unificado"] = default_unificado
+
+    df.loc[contratos_match.str.startswith("INGR"), "contrato_unificado"] = "INGRAM"
+    df.loc[contratos_match.str.startswith("INGRAM"), "contrato_unificado"] = "INGRAM"
+    df.loc[contratos_match.str.startswith("TOTVS"), "contrato_unificado"] = "TOTVS"
+    df.loc[contratos_match.str.startswith("ALGAR"), "contrato_unificado"] = "ALGAR"
+    df.loc[contratos_match.str.startswith("CLARO"), "contrato_unificado"] = "CLARO"
+    df.loc[contratos_match.str.startswith("HCOMPANY"), "contrato_unificado"] = "HCOMPANY"
+    df.loc[contratos_match.str.startswith("UNE"), "contrato_unificado"] = "UNE TELECOM"
+    df.loc[contratos_match.str.startswith("SAP"), "contrato_unificado"] = "SAP"
+    df.loc[contratos_match.str.contains("VELOMAX"), "contrato_unificado"] = "VELOMAX"
+    df.loc[contratos_match.str.startswith("PRODUTIVE"), "contrato_unificado"] = "PRODUTIVE"
+    df.loc[contratos_match.str.startswith("OI"), "contrato_unificado"] = "OI TELECOM"
+    df.loc[contratos_match.str.startswith("NEOMIND"), "contrato_unificado"] = "NEOMIND"
+    df.loc[contratos_match.str.startswith("LUCAS"), "contrato_unificado"] = "LUCAS BICALHO"
+    df.loc[contratos_match.str.startswith("JETTELECOM"), "contrato_unificado"] = "JETTELECOM"
+    df.loc[contratos_match.str.startswith("ILOC3"), "contrato_unificado"] = "ILOC3 LOCAÇÕES"
+    df.loc[contratos_match.str.startswith("HPFS"), "contrato_unificado"] = "HPFS - LOCAÇÃO"
+    df.loc[contratos_match.str.startswith("GRENKE"), "contrato_unificado"] = "GRENKE"
+    df.loc[contratos_match.str.startswith("GLOBO"), "contrato_unificado"] = "GLOBO SOLUÇÕES"
+    df.loc[contratos_match.str.startswith("COMPEX"), "contrato_unificado"] = "COMPEX"
+
+    df["contrato_unificado"] = df["contrato_unificado"].replace("", "Sem Contrato")
+
+    meses_ordenados = []
+    if 'mes' in df.columns:
+        df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
+        meses_ordenados = list(df.sort_values(by='mes')['mes_nome'].unique())
+    else:
+        meses_ordenados = sorted(list(df['mes_nome'].unique()))
+
+    df_relatorio = pd.pivot_table(
+        df,
+        index="contrato_unificado", 
+        columns="mes_nome",
+        values="valor",
+        aggfunc="sum",
+        fill_value=0
+    )
+
+    colunas_presentes = [mes for mes in meses_ordenados if mes in df_relatorio.columns]
+    
+    if colunas_presentes:
+        df_relatorio = df_relatorio[colunas_presentes]
+
+    df_relatorio["Total"] = df_relatorio.sum(axis=1)
+    df_relatorio = df_relatorio.reset_index()
+    df_relatorio = df_relatorio.rename(columns={'contrato_unificado': 'Contrato'})
+
+    df_relatorio = df_relatorio[~df_relatorio['Contrato'].str.startswith("HCOMPANY")]
+
+    colunas_numericas = df_relatorio.columns.drop('Contrato')
+    somas_colunas = df_relatorio[colunas_numericas].sum()
+    
+    linha_total = pd.DataFrame(somas_colunas).T
+    linha_total['Contrato'] = '[TOTAL R$]:'
+    
+    df_relatorio = pd.concat([df_relatorio, linha_total], ignore_index=True)
+
+    def formatar_brl(valor):
+        val_str = f"{valor:,.2f}"
+        val_str_br = val_str.replace(",", "X").replace(".", ",").replace("X", ".")
+        return val_str_br
+
+    colunas_para_formatar = df_relatorio.columns.drop('Contrato')
+
+    return df_relatorio.style.format(formatar_brl, subset=colunas_para_formatar)
+
+def to_excel(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Relatorio')
+    processed_data = output.getvalue()
+    return processed_data
+
+def show_stats(df, coluna_valor, parcelas_df):
     count = len(df)
     total = df[coluna_valor].sum()
 
@@ -16,7 +107,7 @@ def show_stats(df, coluna_valor):
         return val_str_br
 
 
-    colun1, colun2 = st.columns(2)
+    colun1, colun2, colun3 = st.columns(3)
 
     with colun1:
         st.markdown(f"""
@@ -28,6 +119,30 @@ def show_stats(df, coluna_valor):
         """, unsafe_allow_html=True)
 
     with colun2:
+            chave_unica = f"contrato_bttn_relatorio_{coluna_valor}"
+            
+            if st.button("Gerar relatório Anual", key=chave_unica):
+                
+                df_styled = relatorio_anual(parcelas_df)
+                
+                st.dataframe(df_styled)
+                
+                df_raw = df_styled.data 
+                
+                excel_data = to_excel(df_raw)
+                
+                st.download_button(
+                    label=" 📥 Exportar para Excel",
+                    data=excel_data,
+                    file_name=f"relatorio_anual_{ano_atual}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"download_excel_{chave_unica}" 
+                )
+
+                if st.button(" ↩️ Fechar relatório", key = f"contrato_bttn_fechar_{coluna_valor}"):
+                    st.rerun()
+
+    with colun3:
         st.markdown(f"""
         <div style='width: 100%; text-align: right;'>
             <div style='display: inline-block; border: 2px solid; padding: 3px 10px; border-radius: 25px; font-size: 15px; width: 25%;'>
@@ -42,9 +157,8 @@ def contratos():
     key = st.secrets["connections"]["supabase"]["SUPABASE_KEY"]
     supabase: Client = create_client(url, key)
 
-    @st.cache_data
+    @st.cache_data(ttl=300)
     def load_data(table_name):
-
         all_data = []
         offset = 0
         batch_size = 1000
@@ -57,6 +171,15 @@ def contratos():
             offset += batch_size
 
         df = pd.DataFrame(all_data)
+        
+        if table_name == "parcelas":
+            for col in ["data_lancamento", "data_emissao", "data_vencimento"]:
+                df[col] = pd.to_datetime(df[col], errors="coerce")
+        
+            df[["tipo", "contrato", "estabelecimento", "status"]] = df[["tipo", "contrato", "estabelecimento", "status"]].astype("category") 
+            month_display_map = {v: k for k, v in mes_dict.items()}
+            df['mes_nome'] = df['mes'].apply(lambda x: month_display_map.get(x, f'Mês {x}'))
+
         return df
 
     def initialize_state(df, filters):
@@ -410,8 +533,8 @@ def contratos():
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao renovar contrato: {e}")
-    
-    
+
+
     def tabs_show():
         contratos = load_data("contratos")
         tab_novo, tab_editar, tab_renovar, tab_desativar = st.tabs([
@@ -436,6 +559,7 @@ def contratos():
         )
         
         contratos = load_data("contratos")
+        parcelas = load_data("parcelas")
 
         filter_config = [
             ("situacao"),
@@ -492,7 +616,7 @@ def contratos():
         )
 
 
-        show_stats(contratos_filtrado, "valor_contrato")
+        show_stats(contratos_filtrado, "valor_contrato", parcelas)
         st.divider()
         tabs_show()
 

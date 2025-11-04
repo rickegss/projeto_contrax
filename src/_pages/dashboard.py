@@ -2,7 +2,7 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-from utils.stamp import ano_atual, mes_atual
+from src.utils.stamp import ano_atual, mes_atual
 
 def plot_despesa_mensal(df):
     df_agrupado = df.groupby(['mes', 'mes_nome'], observed=True)['valor'].sum().reset_index()
@@ -124,7 +124,7 @@ def show_filters(df):
         b_col2.button("Limpar", on_click=limpar_selecao, args=('dash_classificacao_selecionada',), key='btn_limpar_classificacao', use_container_width=True)
 
 def show_dashboard():
-    from _pages.parcelas import load_data
+    from src._pages.parcelas import load_data
     """
     Função principal que renderiza a página do Dashboard.
     """

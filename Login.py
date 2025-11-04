@@ -1,5 +1,5 @@
 import streamlit as st
-from _pages.parcelas import main
+from src._pages.parcelas import main
 
 st.set_page_config(
         page_title="ContraX - Login",
@@ -52,7 +52,7 @@ def check_password():
 
     with col2:
 
-            st.image("logo/ContraX_Logo.png", width=250)
+            st.image("src/logo/ContraX_Logo.png", width=250)
             st.title("Login")
             st.divider()
             st.subheader('Preencha suas credenciais:')
@@ -101,7 +101,7 @@ def img_to_base64(image_path):
         st.error(f"Erro ao ler a imagem {image_path}: {e}")
         return None
     
-IMG_PATH = "logo/GHE_logo.png"
+IMG_PATH = "src/logo/GHE_logo.png"
 img_base64 = img_to_base64(IMG_PATH)
 
 if img_base64:
