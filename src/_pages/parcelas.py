@@ -1,3 +1,4 @@
+from datetime import datetime
 import time
 import streamlit as st
 import pandas as pd
@@ -301,7 +302,7 @@ def home():
                             try:
                                 add_data = {
                                         "ano": ano_atual, 
-                                        "mes": mes_atual,
+                                        "mes": datetime.now().month,
                                         "data_lancamento": None,
                                         "data_emissao": data_lanc.isoformat(),
                                         "data_vencimento": (data_lanc + relativedelta(months=1)).isoformat(),
