@@ -9,4 +9,4 @@ Thumbs.db
 data/NF_tests
 .vscode/
 .devcontainer/
-data_update/
+*.csv
