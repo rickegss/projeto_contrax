@@ -300,6 +300,12 @@ def home():
                     
                     if st.form_submit_button('Confirmar Adição'):
                             try:
+                                try:
+                                    contrato_id_val = int(df.loc[(df["contrato"] == contrato_add), 'contrato_id'].dropna().iloc[0])
+                                    contrato_classificacao = df.loc[(df["contrato"] == contrato_add), 'classificacao'].dropna().iloc[0]
+                                except (IndexError, ValueError, TypeError) as e:
+                                    st.error(f"Não foi possível localizar um 'contrato_id' válido para '{contrato_add}'. Verifique os dados. Erro: {e}", icon="❌")
+                                    st.stop()
                                 add_data = {
                                         "ano": ano_atual, 
                                         "mes": datetime.now().month,
@@ -308,12 +314,14 @@ def home():
                                         "data_vencimento": (data_lanc + relativedelta(months=1)).isoformat(),
                                         "tipo": df.loc[(df["contrato"] == contrato_add), 'tipo'].dropna().iloc[0],
                                         "contrato": contrato_add,
+                                        "contrato_id": contrato_id_val,
                                         "referente": df.loc[(df["contrato"] == contrato_add), 'referente'].dropna().iloc[0],
                                         "documento": None,
                                         "estabelecimento": df.loc[(df["contrato"] == contrato_add), 'estabelecimento'].dropna().iloc[0],
                                         "status": "ABERTO",
                                         "valor": None,
-                                        "situacao": "ATIVO"
+                                        "situacao": "ATIVO",
+                                        "classificacao": contrato_classificacao
                                     }
                                 
                                 parcelas_to_add = []
@@ -321,7 +329,7 @@ def home():
                                     parcelas_to_add.append(add_data)
                                 supabase.table("parcelas").insert(parcelas_to_add).execute()
                                 st.success(f"{qtd_add} parcela(s) adicionada(s) com sucesso! ✅")
-                                time.sleep(0.6)
+                                time.sleep(0.5)
                                 st.cache_data.clear()
                                 st.rerun()
                             except Exception as e:
@@ -364,7 +372,7 @@ def home():
             st.write("---")
 
     except Exception as e:
-        st.error(f"Falha crítica ao carregar a página de Lançamentos: {e}", icon="❌")
+        st.error(f"Selecione os filtros para carregar a tabela.", icon="❌")
 
 
 def main():
