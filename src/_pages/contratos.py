@@ -349,7 +349,7 @@ def contratos():
                             supabase.table("parcelas").insert(batch_parcelas).execute()
 
                             st.success(f"Contrato adicionado! \n{len(batch_parcelas)} Parcelas criadas com sucesso!")
-                            st.cache_data.clear()
+                            load_data.clear()
                             st.rerun()
                                 
                         except Exception as e:
@@ -370,7 +370,7 @@ def contratos():
                         supabase.table("contratos").delete().eq("contrato", contrato_exc).execute()
                         supabase.table("parcelas").delete().eq("contrato", contrato_exc).execute()
                         st.success("Contrato excluído com sucesso!")
-                        st.cache_data.clear()
+                        load_data.clear()
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao excluir contrato: {e}")
@@ -406,7 +406,7 @@ def contratos():
                                         supabase.table("contratos").update({"situacao": "INATIVO"}).eq("contrato", contrato_selecionado).execute()
                                         supabase.table("parcelas").update({"situacao": "INATIVO"}).eq("contrato", contrato_selecionado).execute()
                                         st.success("Contrato desativado com sucesso!")
-                                        st.cache_data.clear()
+                                        load_data.clear()
                                         st.rerun()
                                     except Exception as e:
                                         st.error(f"Erro ao desativar contrato: {e}")
@@ -418,7 +418,7 @@ def contratos():
                                         supabase.table("contratos").update({"situacao": "ATIVO"}).eq("contrato", contrato_selecionado).execute()
                                         supabase.table("parcelas").update({"situacao": "ATIVO"}).eq("contrato", contrato_selecionado).execute()
                                         st.success("Contrato ativado com sucesso!")
-                                        st.cache_data.clear()
+                                        load_data.clear()
                                         st.rerun()
                                     except Exception as e:
                                         st.error(f"Erro ao ativar contrato: {e}")
@@ -491,7 +491,7 @@ def contratos():
                     try:
                         supabase.table("contratos").update(edited_contract).eq("contrato", contrato_edit).execute()
                         st.success("Contrato atualizado com sucesso!")
-                        st.cache_data.clear()
+                        load_data.clear()
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao atualizar contrato: {e}")
@@ -529,7 +529,7 @@ def contratos():
                     try:
                         supabase.table("contratos").update(renovacao).eq("contrato", contrato_renew).execute()
                         st.success("Contrato renovado com sucesso!")
-                        st.cache_data.clear()
+                        load_data.clear()
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao renovar contrato: {e}")

@@ -9,12 +9,38 @@ from src._pages.contratos import contratos, show_stats
 from src._pages.dashboard import show_dashboard
 from dateutil.relativedelta import relativedelta
 
-url = st.secrets["connections"]["supabase"]["SUPABASE_URL"]
-key = st.secrets["connections"]["supabase"]["SUPABASE_KEY"]
-supabase: Client = create_client(url, key)
+@st.cache_resource
+def get_supabase_client(ambiente):
+    try:
+        if ambiente == "Produção":
+                url = st.secrets["connections"]["supabase"]["SUPABASE_URL"]
+                key = st.secrets["connections"]["supabase"]["SUPABASE_KEY"]
+        elif ambiente == "Teste":
+                url = st.secrets["connections_homolog"]["supabase"]["SUPABASE_URL"]
+                key = st.secrets["connections_homolog"]["supabase"]["SUPABASE_KEY"]
+        else:
+                st.error("Ambiente inválido.", icon="❌")
+                return None
+
+        supabase: Client = create_client(url, key)
+        return supabase
+    
+    except KeyError:
+        st.error("Falha ao inicializar o cliente: 'ambiente' não encontrado no session_state. Faça o login novamente.", icon="❌")
+        return None
+    except Exception as e:
+        st.error(f"Erro ao conectar ao Supabase: {e}", icon="❌")
+        return None
 
 @st.cache_data(ttl=300)
 def load_data(table_name):
+
+    ambiente = st.session_state.get("ambiente", "Produção")
+    supabase = get_supabase_client(ambiente)
+    if not supabase:
+        st.error("Conexão com Supabase falhou. Não foi possível carregar dados.")
+        return pd.DataFrame()
+
     all_data = []
     offset = 0
     batch_size = 1000
@@ -45,17 +71,41 @@ def limpar_selecao(chave_estado):
     st.session_state[chave_estado] = []
 
 def home():
-    st.set_page_config(
-    page_title="ContraX",
-    page_icon='src/logo/ContraX_Favicon.png',
-    layout="wide",
-    )
+
+    if "logged_in" not in st.session_state or not st.session_state.logged_in:
+        page_background = """
+        <style>
+        .stApp {
+            background-image: url("https://rare-gallery.com/uploads/posts/1105868-digital-art-black-background-minimalism-water-drops-blue-technology-circle-Cable-line-wing-screenshot-computer-wallpaper-font.jpg");
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: scroll;
+        }
+
+        div[data-testid="stLayoutWrapper"] {
+            background: rgba(0, 0, 3, 0.99);
+            padding: 15px;
+            border-radius: 75px;
+            max-width: 550px;
+            margin: 20px auto;
+            box-shadow: 0 0 80px rgba(0, 0, 0, 0.9), 0 0 45px rgba(15, 20, 30, 1);
+            border: 4px solid rgba(0.1, 0.1, 0.1, 0.1);
+        }
+        </style>
+        """
+        st.markdown(page_background, unsafe_allow_html=True)
 
     st.title("Lançamento de Parcelas")
     st.divider()
 
     try:
+        ambiente = st.session_state.ambiente
+    except (AttributeError, KeyError):
+        return 
+
+    try:
         df = load_data("parcelas")
+        supabase = get_supabase_client(ambiente)
 
         with st.expander("Filtros de Visualização", expanded=True):
             anos_disponiveis = df["ano"].dropna().sort_values().unique().tolist()
@@ -187,7 +237,7 @@ def home():
                                     
                                     if upd.data:
                                         st.success("Parcela atualizada com sucesso! ✅")
-                                        st.cache_data.clear()
+                                        load_data.clear()
                                         st.rerun()
                                     else:
                                         st.error("Nenhuma parcela encontrada com este ID para atualização.", icon="❌")
@@ -253,7 +303,7 @@ def home():
 
                                                 if res.data:
                                                     st.success("Parcela atualizada com sucesso! ✅")
-                                                    st.cache_data.clear()
+                                                    load_data.clear()
                                                     st.rerun()
                                                 else: 
                                                     st.error("ID não encontrado ou falha na atualização.", icon="❌")
@@ -271,7 +321,7 @@ def home():
                                         res = supabase.table("parcelas").update(update_data).eq("id", id_parcela_mod).execute()
                                         if res.data:
                                             st.success("Parcela revertida com sucesso! ✅")
-                                            st.cache_data.clear()
+                                            load_data.clear()
                                             st.rerun()
                                         else:
                                             st.error("ID não encontrado ou falha ao reverter.", icon="❌")
@@ -330,7 +380,7 @@ def home():
                                 supabase.table("parcelas").insert(parcelas_to_add).execute()
                                 st.success(f"{qtd_add} parcela(s) adicionada(s) com sucesso! ✅")
                                 time.sleep(0.5)
-                                st.cache_data.clear()
+                                load_data.clear()
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Erro ao adicionar parcelas: {e}", icon="❌")
@@ -361,7 +411,7 @@ def home():
                                     if response.data:
                                         st.success(f"Parcela {id_parcela_exc} excluída com sucesso.")
                                         time.sleep(0.7)
-                                        st.cache_data.clear()
+                                        load_data.clear()
                                         st.rerun()
                                     else:
                                         st.error("Parcela não encontrada. Verifique e tente novamente.", icon="❌")
@@ -381,6 +431,11 @@ def main():
         st.image("src/logo/ContraX_Logo.png", width=240, caption="Gestão de Contratos")
     with logo2:
         st.image("src/logo/hcompany_branco_intranet.png", width=200)
+    try:
+        if st.session_state.ambiente == "Teste":
+            st.warning("⚠️ **ATENÇÃO: Você está conectado ao AMBIENTE DE TESTE.**", icon="🔥") 
+    except AttributeError:
+        pass
 
     tab_lancamentos, tab_contratos, tab_dashboard = st.tabs([" Lançamentos ", " Contratos ", " Dashboard "])
 

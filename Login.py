@@ -1,10 +1,10 @@
 import streamlit as st
-from src._pages.parcelas import main
+from src._pages.parcelas import main, get_supabase_client, load_data
 
 st.set_page_config(
         page_title="ContraX - Login",
         page_icon="logo/ContraX_Favicon.png",
-        layout="centered",
+        layout="wide",
     )
 
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
@@ -58,6 +58,7 @@ def check_password():
             st.subheader('Preencha suas credenciais:')
             st.text_input("Nome de Usuário", key="username")
             st.text_input("Senha", type="password", key="password")
+            st.segmented_control("Ambiente", options=["Produção", "Teste"],default="Produção" ,key="ambiente")
             st.divider()
 
             if st.button("Entrar"):
@@ -80,6 +81,10 @@ else:
         st.success("Você está logado!")
         if st.button("Sair"):
             st.session_state.logged_in = False
+            if "ambiente" in st.session_state:
+                del st.session_state.ambiente
+            get_supabase_client.clear() # Limpa o cache do cliente Supabase
+            load_data.clear()
             st.toast("Você saiu com sucesso!")
             st.rerun()
     main()
