@@ -1,8 +1,8 @@
-pandas==2.3.3
-pdfplumber==0.11.7
-plotly==6.3.0
-python_dateutil==2.9.0.post0
-streamlit==1.50.0
-supabase==2.22.0
-openpyxl==3.1.5
-numpy==2.3.3
+pandas
+pdfplumber
+plotly
+python_dateutil
+streamlit
+supabase
+openpyxl
+numpy
