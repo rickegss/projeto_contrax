@@ -167,8 +167,8 @@ def home():
                         doc_lanc = st.text_input("Número do Documento", value=doc_extraido)
                         
                         if st.form_submit_button("Confirmar Lançamento"):
-                            if not contrato_lanc or not valor_lanc or valor_lanc <= 0:
-                                st.warning("É necessário selecionar um contrato e preencher um valor válido.", icon="🚨")
+                            if (not contrato_lanc) and (not doc_lanc) and (not valor_lanc or valor_lanc <= 0):
+                                st.warning("É necessário selecionar um contrato e preencher todos os campos devidamente.", icon="🚨")
                             else:
                                 try:
                                     id_lanc = options_box[contrato_lanc] 

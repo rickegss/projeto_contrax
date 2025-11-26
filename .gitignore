@@ -10,3 +10,4 @@ data/NF_tests
 .vscode/
 .devcontainer/
 *.csv
+data_update/
