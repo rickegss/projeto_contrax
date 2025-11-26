@@ -252,6 +252,8 @@ def contratos() -> pd.DataFrame:
             b_col1, b_col2 = st.columns(2)
             b_col1.button("Todos", on_click=selecionar_todos, args=('contratos_pedido_selecionado', ["Contrato", "Pedido"]), key='contratos_todos_pedido')
             b_col2.button("Limpar", on_click=limpar_selecao, args=('contratos_pedido_selecionado',), key='contratos_limpar_pedido')
+            st.button("Recarregar tabela", on_click=st.cache_data.clear, key='contratos_atualizar')
+            
 
     def new_contract(df) -> None:
 
