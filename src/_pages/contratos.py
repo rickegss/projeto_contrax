@@ -7,7 +7,7 @@ from supabase import create_client, Client
 from src.utils.stamp import mes_dict, ano_atual
 import io
 
-def relatorio_anual(df):
+def relatorio_anual(df) -> pd.DataFrame:
     df['valor'] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
     df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
     df = df[df["ano"] == ano_atual].copy()
@@ -79,7 +79,7 @@ def relatorio_anual(df):
     
     df_relatorio = pd.concat([df_relatorio, linha_total], ignore_index=True)
 
-    def formatar_brl(valor):
+    def formatar_brl(valor) -> str:
         val_str = f"{valor:,.2f}"
         val_str_br = val_str.replace(",", "X").replace(".", ",").replace("X", ".")
         return val_str_br
@@ -88,18 +88,18 @@ def relatorio_anual(df):
 
     return df_relatorio.style.format(formatar_brl, subset=colunas_para_formatar)
 
-def to_excel(df):
+def to_excel(df) -> bytes:
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Relatorio')
     processed_data = output.getvalue()
     return processed_data
 
-def show_stats(df, coluna_valor, parcelas_df):
+def show_stats(df, coluna_valor, parcelas_df) -> None:
     count = len(df)
     total = df[coluna_valor].sum()
 
-    def formata_val(valor):
+    def formata_val(valor) -> str:
         if valor is None:
             return "0,00"
         val_str = f"{valor:,.2f}"
@@ -152,13 +152,13 @@ def show_stats(df, coluna_valor, parcelas_df):
         """, unsafe_allow_html=True)
 
 
-def contratos():
+def contratos() -> pd.DataFrame:
     url = st.secrets["connections"]["supabase"]["SUPABASE_URL"]
     key = st.secrets["connections"]["supabase"]["SUPABASE_KEY"]
     supabase: Client = create_client(url, key)
 
     @st.cache_data(ttl=300)
-    def load_data(table_name):
+    def load_data(table_name) -> pd.DataFrame:
         all_data = []
         offset = 0
         batch_size = 1000
@@ -182,7 +182,7 @@ def contratos():
 
         return df
 
-    def initialize_state(df, filters):
+    def initialize_state(df, filters) -> None:
         if "initialized_contratos" in st.session_state:
             return
         
@@ -200,7 +200,7 @@ def contratos():
             st.session_state[f'contratos_situacao_selecionado'] = ["ATIVO"]
 
 
-    def show_filters(df, filter_config):
+    def show_filters(df, filter_config) -> None:
         from .parcelas import selecionar_todos, limpar_selecao
         cols = st.columns(len(filter_config))
         with cols[0]:
@@ -253,7 +253,7 @@ def contratos():
             b_col1.button("Todos", on_click=selecionar_todos, args=('contratos_pedido_selecionado', ["Contrato", "Pedido"]), key='contratos_todos_pedido')
             b_col2.button("Limpar", on_click=limpar_selecao, args=('contratos_pedido_selecionado',), key='contratos_limpar_pedido')
 
-    def new_contract(df):
+    def new_contract(df) -> None:
 
         ccol1, = st.columns(1)
 
@@ -355,7 +355,7 @@ def contratos():
                         except Exception as e:
                             st.error(f"Erro ao criar contrato: {e}")
 
-    def delete_contract(df):
+    def delete_contract(df) -> None: 
         ccol2, = st.columns(1)
 
         with ccol2:
@@ -376,7 +376,7 @@ def contratos():
                         st.error(f"Erro ao excluir contrato: {e}")
 
 
-    def active_deactive_contract(df):
+    def active_deactive_contract(df) -> None:
             coll3, = st.columns(1)
 
             with coll3:
@@ -423,7 +423,7 @@ def contratos():
                                     except Exception as e:
                                         st.error(f"Erro ao ativar contrato: {e}")
 
-    def edit_contract(df):
+    def edit_contract(df) -> None:
         coll4, = st.columns(1)
 
         with coll4:
@@ -496,7 +496,7 @@ def contratos():
                     except Exception as e:
                         st.error(f"Erro ao atualizar contrato: {e}")
 
-    def renew_contract(df):
+    def renew_contract(df) -> None:
         coll5, = st.columns(1)
 
         with coll5:
@@ -535,7 +535,7 @@ def contratos():
                         st.error(f"Erro ao renovar contrato: {e}")
 
 
-    def tabs_show():
+    def tabs_show() -> None:
         contratos = load_data("contratos")
         tab_novo, tab_editar, tab_renovar, tab_desativar = st.tabs([
         "Novo Contrato", "Editar Contrato", "Renovar Contrato", "Desativar Contrato"])
@@ -552,7 +552,7 @@ def contratos():
         #     delete_contract(contratos)
         
 
-    def show():
+    def show() -> None:
         st.set_page_config(
             page_title="ContraX",
             layout="wide",
