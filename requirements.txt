@@ -6,3 +6,7 @@ streamlit
 supabase
 openpyxl
 numpy
+pydantic
+pydantic-settings
+python-dotenv
+pytest
