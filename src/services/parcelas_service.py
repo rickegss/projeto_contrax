@@ -140,9 +140,11 @@ def view_adicionar(df, df_filter, supabase):
         if st.form_submit_button('Confirmar Adição'):
             try:
                 row_ref = df[df["contrato"] == contrato_add].iloc[0]
+                ano_selecionado = int(df_filter["ano"].iloc[0])
+                mes_selecionado = int(df_filter["mes"].iloc[0])
                 add_data = {
-                    "ano": (df["ano"] == df_filter["ano"].iloc[0]), 
-                    "mes": (df["mes"] == df_filter["mes"].iloc[0]),
+                    "ano": ano_selecionado, 
+                    "mes": mes_selecionado,
                     "data_lancamento": None,
                     "data_emissao": data_lanc.isoformat(),
                     "data_vencimento": (data_lanc + relativedelta(months=1)).isoformat(),
