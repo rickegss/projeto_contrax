@@ -4,7 +4,7 @@ from src._pages.parcelas import main
 st.set_page_config(
         page_title="ContraX - Login",
         page_icon="logo/ContraX_Favicon.png",
-        layout="centered",
+        layout="wide"
     )
 
 if "logged_in" not in st.session_state or not st.session_state.logged_in:

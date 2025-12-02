@@ -1,4 +1,4 @@
-import numpy as np
+import time
 import pandas as pd
 import streamlit as st
 from datetime import datetime
@@ -7,11 +7,74 @@ from supabase import create_client, Client
 from src.utils.stamp import mes_dict, ano_atual
 import io
 
-def relatorio_anual(df) -> pd.DataFrame:
+@st.cache_resource
+def get_supabase_client() -> Client:
+    url = st.secrets["connections"]["supabase"]["SUPABASE_URL"]
+    key = st.secrets["connections"]["supabase"]["SUPABASE_KEY"]
+    if key == st.secrets["connections_homolog"]["supabase"]["SUPABASE_KEY"]:
+        st.title("Ambiente de teste")
+    return create_client(url, key)
+
+@st.cache_data(ttl=300)
+def load_data(table_name: str) -> pd.DataFrame:
+    supabase = get_supabase_client()
+    all_data = []
+    offset = 0
+    batch_size = 1000
+
+    try:
+        while True:
+            data = supabase.table(table_name).select("*").range(offset, offset + batch_size - 1).execute()
+
+            if not data.data:
+                break
+            
+            all_data.extend(data.data)
+            offset += batch_size
+            
+    except Exception as e:
+        st.error(f"Erro de conexão com o Supabase na tabela '{table_name}'. O banco pode estar pausado ou indisponível.")
+        st.error(f"Detalhe técnico: {e}")
+
+        return pd.DataFrame()
+
+    df = pd.DataFrame(all_data)
+    
+    if df.empty:
+        return df
+
+    if table_name == "parcelas":
+        cols_date = ["data_lancamento", "data_emissao", "data_vencimento"]
+        for col in cols_date:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], errors="coerce")
+        
+        cols_cat = ["tipo", "contrato", "estabelecimento", "status"]
+        for col in cols_cat:
+            if col in df.columns:
+                df[col] = df[col].astype("category")
+        
+        if 'mes' in df.columns:
+            month_display_map = {v: k for k, v in mes_dict.items()}
+            df['mes_nome'] = df['mes'].map(lambda x: month_display_map.get(x, f'Mês {x}'))
+
+    return df
+
+def to_excel(df: pd.DataFrame) -> bytes:
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Relatorio')
+    return output.getvalue()
+
+def formatar_brl(valor) -> str:
+    return f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+def relatorio_anual(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
     df['valor'] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
     df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
-    df = df[df["ano"] == ano_atual].copy()
-    df = df[df["status"] == 'LANÇADO'].copy()
+    
+    df = df[(df["ano"] == ano_atual) & (df["status"] == 'LANÇADO')]
 
     if "" not in df['contrato'].cat.categories:
         df['contrato'] = df['contrato'].cat.add_categories([""])
@@ -19,32 +82,22 @@ def relatorio_anual(df) -> pd.DataFrame:
     contratos_limpos = df['contrato'].fillna("")
     contratos_match = contratos_limpos.str.upper().str.strip()
 
-    default_unificado = contratos_limpos.str.replace(r'\s+\d+$', '', regex=True)
-    df["contrato_unificado"] = default_unificado
-
-    df.loc[contratos_match.str.startswith("INGR"), "contrato_unificado"] = "INGRAM"
-    df.loc[contratos_match.str.startswith("INGRAM"), "contrato_unificado"] = "INGRAM"
-    df.loc[contratos_match.str.startswith("TOTVS"), "contrato_unificado"] = "TOTVS"
-    df.loc[contratos_match.str.startswith("ALGAR"), "contrato_unificado"] = "ALGAR"
-    df.loc[contratos_match.str.startswith("CLARO"), "contrato_unificado"] = "CLARO"
-    df.loc[contratos_match.str.startswith("HCOMPANY"), "contrato_unificado"] = "HCOMPANY"
-    df.loc[contratos_match.str.startswith("UNE"), "contrato_unificado"] = "UNE TELECOM"
-    df.loc[contratos_match.str.startswith("SAP"), "contrato_unificado"] = "SAP"
+    df["contrato_unificado"] = contratos_limpos.str.replace(r'\s+\d+$', '', regex=True)
+    
+    mappings = {
+        "INGR": "INGRAM", "INGRAM": "INGRAM", "TOTVS": "TOTVS", "ALGAR": "ALGAR",
+        "CLARO": "CLARO", "HCOMPANY": "HCOMPANY", "UNE": "UNE TELECOM", "SAP": "SAP",
+        "PRODUTIVE": "PRODUTIVE", "OI": "OI TELECOM", "NEOMIND": "NEOMIND",
+        "LUCAS": "LUCAS BICALHO", "JETTELECOM": "JETTELECOM", "ILOC3": "ILOC3 LOCAÇÕES",
+        "HPFS": "HPFS - LOCAÇÃO", "GRENKE": "GRENKE", "GLOBO": "GLOBO SOLUÇÕES", "COMPEX": "COMPEX"
+    }
+    
+    for key, val in mappings.items():
+        df.loc[contratos_match.str.startswith(key), "contrato_unificado"] = val
+    
     df.loc[contratos_match.str.contains("VELOMAX"), "contrato_unificado"] = "VELOMAX"
-    df.loc[contratos_match.str.startswith("PRODUTIVE"), "contrato_unificado"] = "PRODUTIVE"
-    df.loc[contratos_match.str.startswith("OI"), "contrato_unificado"] = "OI TELECOM"
-    df.loc[contratos_match.str.startswith("NEOMIND"), "contrato_unificado"] = "NEOMIND"
-    df.loc[contratos_match.str.startswith("LUCAS"), "contrato_unificado"] = "LUCAS BICALHO"
-    df.loc[contratos_match.str.startswith("JETTELECOM"), "contrato_unificado"] = "JETTELECOM"
-    df.loc[contratos_match.str.startswith("ILOC3"), "contrato_unificado"] = "ILOC3 LOCAÇÕES"
-    df.loc[contratos_match.str.startswith("HPFS"), "contrato_unificado"] = "HPFS - LOCAÇÃO"
-    df.loc[contratos_match.str.startswith("GRENKE"), "contrato_unificado"] = "GRENKE"
-    df.loc[contratos_match.str.startswith("GLOBO"), "contrato_unificado"] = "GLOBO SOLUÇÕES"
-    df.loc[contratos_match.str.startswith("COMPEX"), "contrato_unificado"] = "COMPEX"
-
     df["contrato_unificado"] = df["contrato_unificado"].replace("", "Sem Contrato")
 
-    meses_ordenados = []
     if 'mes' in df.columns:
         df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
         meses_ordenados = list(df.sort_values(by='mes')['mes_nome'].unique())
@@ -52,64 +105,35 @@ def relatorio_anual(df) -> pd.DataFrame:
         meses_ordenados = sorted(list(df['mes_nome'].unique()))
 
     df_relatorio = pd.pivot_table(
-        df,
-        index="contrato_unificado", 
-        columns="mes_nome",
-        values="valor",
-        aggfunc="sum",
-        fill_value=0
+        df, index="contrato_unificado", columns="mes_nome", values="valor",
+        aggfunc="sum", fill_value=0
     )
 
     colunas_presentes = [mes for mes in meses_ordenados if mes in df_relatorio.columns]
-    
     if colunas_presentes:
         df_relatorio = df_relatorio[colunas_presentes]
 
     df_relatorio["Total"] = df_relatorio.sum(axis=1)
-    df_relatorio = df_relatorio.reset_index()
-    df_relatorio = df_relatorio.rename(columns={'contrato_unificado': 'Contrato'})
-
+    df_relatorio = df_relatorio.reset_index().rename(columns={'contrato_unificado': 'Contrato'})
+    
     df_relatorio = df_relatorio[~df_relatorio['Contrato'].str.startswith("HCOMPANY")]
 
     colunas_numericas = df_relatorio.columns.drop('Contrato')
     somas_colunas = df_relatorio[colunas_numericas].sum()
-    
     linha_total = pd.DataFrame(somas_colunas).T
     linha_total['Contrato'] = '[TOTAL R$]:'
     
     df_relatorio = pd.concat([df_relatorio, linha_total], ignore_index=True)
-
-    def formatar_brl(valor) -> str:
-        val_str = f"{valor:,.2f}"
-        val_str_br = val_str.replace(",", "X").replace(".", ",").replace("X", ".")
-        return val_str_br
-
-    colunas_para_formatar = df_relatorio.columns.drop('Contrato')
-
-    return df_relatorio.style.format(formatar_brl, subset=colunas_para_formatar)
-
-def to_excel(df) -> bytes:
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Relatorio')
-    processed_data = output.getvalue()
-    return processed_data
+    
+    return df_relatorio.style.format(formatar_brl, subset=colunas_numericas)
 
 def show_stats(df, coluna_valor, parcelas_df) -> None:
     count = len(df)
     total = df[coluna_valor].sum()
+    
+    col1, col2, col3 = st.columns(3)
 
-    def formata_val(valor) -> str:
-        if valor is None:
-            return "0,00"
-        val_str = f"{valor:,.2f}"
-        val_str_br = val_str.replace(",", "X").replace(".", ",").replace("X", ".")
-        return val_str_br
-
-
-    colun1, colun2, colun3 = st.columns(3)
-
-    with colun1:
+    with col1:
         st.markdown(f"""
         <div style='width: 100%; text-align: left;'>
             <div style='display: inline-block; border: 2px solid; padding: 3px 10px; border-radius: 25px; font-size: 15px; width: 20%;'>
@@ -118,511 +142,379 @@ def show_stats(df, coluna_valor, parcelas_df) -> None:
         </div>    
         """, unsafe_allow_html=True)
 
-    with colun2:
-            chave_unica = f"contrato_bttn_relatorio_{coluna_valor}"
+    with col2:
+        chave_unica = f"contrato_bttn_relatorio_{coluna_valor}"
+        if st.button("Gerar relatório Anual", key=chave_unica):
+            df_styled = relatorio_anual(parcelas_df)
+            st.dataframe(df_styled)
             
-            if st.button("Gerar relatório Anual", key=chave_unica):
-                
-                df_styled = relatorio_anual(parcelas_df)
-                
-                st.dataframe(df_styled)
-                
-                df_raw = df_styled.data 
-                
-                excel_data = to_excel(df_raw)
-                
-                st.download_button(
-                    label=" 📥 Exportar para Excel",
-                    data=excel_data,
-                    file_name=f"relatorio_anual_{ano_atual}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"download_excel_{chave_unica}" 
-                )
+            st.download_button(
+                label=" 📥 Exportar para Excel",
+                data=to_excel(df_styled.data),
+                file_name=f"relatorio_anual_{ano_atual}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key=f"download_excel_{chave_unica}" 
+            )
+            if st.button(" ↩️ Fechar relatório", key=f"contrato_bttn_fechar_{coluna_valor}"):
+                st.rerun()
 
-                if st.button(" ↩️ Fechar relatório", key = f"contrato_bttn_fechar_{coluna_valor}"):
-                    st.rerun()
-
-    with colun3:
+    with col3:
+        val_str = "0,00" if total is None else formatar_brl(total)
         st.markdown(f"""
         <div style='width: 100%; text-align: right;'>
             <div style='display: inline-block; border: 2px solid; padding: 3px 10px; border-radius: 25px; font-size: 15px; width: 25%;'>
-                Total: R$ {formata_val(total)}
+                Total: R$ {val_str}
             </div>
         </div>
         """, unsafe_allow_html=True)
 
+def initialize_state(df, filters) -> None:
+    if "initialized_contratos" in st.session_state:
+        return
+    
+    st.session_state.initialized_contratos = True
+    for key in filters:
+        st.session_state[f"toggle_{key}"] = True
+    
+        if f'contratos_{key}_selecionado' not in st.session_state:
+            if key in ['contrato', 'estabelecimento', 'classificacao']:
+                st.session_state[f'contratos_{key}_selecionado'] = df[key].dropna().sort_values().unique().tolist()
+            elif key == 'pedido':
+                st.session_state[f'contratos_pedido_selecionado'] = ['Contrato']
 
-def contratos() -> pd.DataFrame:
-    url = st.secrets["connections"]["supabase"]["SUPABASE_URL"]
-    key = st.secrets["connections"]["supabase"]["SUPABASE_KEY"]
-    supabase: Client = create_client(url, key)
+    if 'contratos_situacao_selecionado' not in st.session_state:
+        st.session_state[f'contratos_situacao_selecionado'] = ["ATIVO"]
 
-    @st.cache_data(ttl=300)
-    def load_data(table_name) -> pd.DataFrame:
-        all_data = []
-        offset = 0
-        batch_size = 1000
+def show_filters(df, filter_config) -> None:
+    from .parcelas import selecionar_todos, limpar_selecao
+    
+    cols = st.columns(len(filter_config))
+    
+    labels = {
+        "situacao": "Situação", "contrato": "Contratos", 
+        "estabelecimento": "Estabelecimento", "classificacao": "Classificação", 
+        "pedido": "Contrato/Pedido"
+    }
 
-        while True:
-            data = supabase.table(table_name).select("*").range(offset, offset + batch_size - 1).execute()
-            if not data.data:
-                break
-            all_data.extend(data.data)
-            offset += batch_size
-
-        df = pd.DataFrame(all_data)
-        
-        if table_name == "parcelas":
-            for col in ["data_lancamento", "data_emissao", "data_vencimento"]:
-                df[col] = pd.to_datetime(df[col], errors="coerce")
-        
-            df[["tipo", "contrato", "estabelecimento", "status"]] = df[["tipo", "contrato", "estabelecimento", "status"]].astype("category") 
-            month_display_map = {v: k for k, v in mes_dict.items()}
-            df['mes_nome'] = df['mes'].apply(lambda x: month_display_map.get(x, f'Mês {x}'))
-
-        return df
-
-    def initialize_state(df, filters) -> None:
-        if "initialized_contratos" in st.session_state:
-            return
-        
-        st.session_state.initialized_contratos = True
-        for key in filters:
-            st.session_state[f"toggle_{key}"] = True
-        
-            if f'contratos_{key}_selecionado' not in st.session_state:
-                if key in ['contrato', 'estabelecimento', 'classificacao']:
-                    st.session_state[f'contratos_{key}_selecionado'] = df[key].dropna().sort_values().unique().tolist()
-                elif key == 'pedido':
-                    st.session_state[f'contratos_pedido_selecionado'] = ['Contrato']
-
-        if 'contratos_situacao_selecionado' not in st.session_state:
-            st.session_state[f'contratos_situacao_selecionado'] = ["ATIVO"]
-
-
-    def show_filters(df, filter_config) -> None:
-        from .parcelas import selecionar_todos, limpar_selecao
-        cols = st.columns(len(filter_config))
-        with cols[0]:
-            st.multiselect(
-                "Situação", 
-                options=df["situacao"].dropna().unique(), 
-                key='contratos_situacao_selecionado'
-            )
-            b_col1, b_col2 = st.columns(2)
-            b_col1.button("Todos", on_click=selecionar_todos, args=('contratos_situacao_selecionado', df["situacao"].dropna().unique().tolist()), key='contratos_todos_situacao')
-            b_col2.button("Limpar", on_click=limpar_selecao, args=('contratos_situacao_selecionado',), key='contratos_limpar_situacao')
-        
-        with cols[1]:
-            st.multiselect(
-                "Contratos", 
-                options=df["contrato"].dropna().unique(), 
-                key='contratos_contrato_selecionado'
-            )
-            b_col1, b_col2 = st.columns(2)
-            b_col1.button("Todos", on_click=selecionar_todos, args=('contratos_contrato_selecionado', df["contrato"].dropna().unique().tolist()), key='contratos_todos_contrato')
-            b_col2.button("Limpar", on_click=limpar_selecao, args=('contratos_contrato_selecionado',), key='contratos_limpar_contrato')
-
-        with cols[2]:
-            st.multiselect(
-                "Estabelecimento", 
-                options=df["estabelecimento"].dropna().unique(), 
-                key='contratos_estabelecimento_selecionado'
-            )
-            b_col1, b_col2 = st.columns(2)
-            b_col1.button("Todos", on_click=selecionar_todos, args=('contratos_estabelecimento_selecionado', df["estabelecimento"].dropna().unique().tolist()), key='contratos_todos_estabelecimento')
-            b_col2.button("Limpar", on_click=limpar_selecao, args=('contratos_estabelecimento_selecionado',), key='contratos_limpar_estabelecimento')
-
-        with cols[3]:
-            st.multiselect(
-                "Classificação", 
-                options=df["classificacao"].dropna().unique(), 
-                key='contratos_classificacao_selecionado'
-            )
-            b_col1, b_col2 = st.columns(2)
-            b_col1.button("Todos", on_click=selecionar_todos, args=('contratos_classificacao_selecionado', df["classificacao"].dropna().unique().tolist()), key='contratos_todos_classificacao')
-            b_col2.button("Limpar", on_click=limpar_selecao, args=('contratos_classificacao_selecionado',), key='contratos_limpar_classificacao')
-
-        with cols[4]:
-            st.multiselect(
-                "Contrato/Pedido", 
-                options=["Contrato", "Pedido"], 
-                key='contratos_pedido_selecionado'
-            )
-            b_col1, b_col2 = st.columns(2)
-            b_col1.button("Todos", on_click=selecionar_todos, args=('contratos_pedido_selecionado', ["Contrato", "Pedido"]), key='contratos_todos_pedido')
-            b_col2.button("Limpar", on_click=limpar_selecao, args=('contratos_pedido_selecionado',), key='contratos_limpar_pedido')
-            st.button("Recarregar tabela", on_click=st.cache_data.clear, key='contratos_atualizar')
+    for i, key in enumerate(filter_config):
+        with cols[i]:
+            label = labels.get(key, key.capitalize())
             
-
-    def new_contract(df) -> None:
-
-        ccol1, = st.columns(1)
-
-        with ccol1:
-            st.subheader("Dados do Contrato")
+            if key == "pedido":
+                options = ["Contrato", "Pedido"]
+            else:
+                options = df[key].dropna().unique()
+                if key != "situacao": 
+                    options = sorted(options.tolist()) if hasattr(options, 'tolist') else sorted(options)
             
-            with st.form("form_novo_contrato", clear_on_submit=True):
-                contrato = st.text_input("Nome do Contrato")
-                contrato = contrato.upper()
-                cnpj = st.text_input("CNPJ")
-                numero_contrato = st.text_input("Número do Contrato")
-                estabelecimento = st.segmented_control("Estabelecimento", options=(df["estabelecimento"].dropna().unique()))
-                valor_contrato = st.number_input("Valor do Contrato R$", format="%.2f", step=1.0, min_value=1.0)
-                duracao = st.number_input("Duração do contrato (meses)", format="%d", min_value=1)
-                conta = st.number_input("Conta", step=1.0)
-                conta = str(float(conta))
-                centro_custo = st.number_input("Centro de Custo", step=1.0)
-                centro_custo = str(float(centro_custo))
-                classificacao = st.segmented_control("Classificação", options=df["classificacao"].dropna().unique())  
-                data_inicio = st.date_input("Data de Início", value=datetime.now().date())
-                valor_parcela = valor_contrato / duracao
-                duracao_delta = relativedelta(months=duracao)
-                data_termino = data_inicio + relativedelta(months=duracao, days=-1)
+            if not isinstance(options, list) and not isinstance(options, pd.Categorical):
+                 options = list(options)
 
-                st.markdown("### Anexos:")
+            key_state = f'contratos_{key}_selecionado'
+            
+            st.multiselect(label, options=options, key=key_state)
+            
+            b_col1, b_col2 = st.columns(2)
+            b_col1.button("Todos", on_click=selecionar_todos, args=(key_state, options), key=f'contratos_todos_{key}')
+            b_col2.button("Limpar", on_click=limpar_selecao, args=(key_state,), key=f'contratos_limpar_{key}')
+            
+            if key == "pedido":
+                 st.button("Recarregar tabela", on_click=st.cache_data.clear, key='contratos_atualizar')
 
-                nf_check = st.checkbox("Nota Fiscal")
-                nf_str = "NF" if nf_check else ""
-                bol_check = st.checkbox("BOL")
-                bol_str = "BOL" if bol_check else ""
-                fat_check = st.checkbox("FAT")
-                fat_str = "FAT" if fat_check else ""
 
-                anexos = [nf_str, bol_str, fat_str]
-                anexos = [a for a in anexos if a]
+# --- CRUD  ---
+def new_contract(df) -> None:
+    ccol1, = st.columns(1)
+    supabase = get_supabase_client()
 
-                anexos_str =  " / ".join(anexos)  
+    with ccol1:
+        st.subheader("Dados do Contrato")
+        
+        with st.form("form_novo_contrato", clear_on_submit=True):
+            contrato = st.text_input("Nome do Contrato*").upper()
+            cnpj = st.text_input("CNPJ")
+            numero_contrato = st.text_input("Número do Contrato*")
+            estabelecimento = st.segmented_control("Estabelecimento*", options=(df["estabelecimento"].dropna().unique()))
+            valor_contrato = st.number_input("Valor do Contrato R$", format="%.2f", step=1.0, min_value=1.0)
+            duracao = st.number_input("Duração do contrato (meses)*", format="%d", min_value=1)
+            conta = str(float(st.number_input("Conta", step=1.0)))
+            centro_custo = str(float(st.number_input("Centro de Custo", step=1.0)))
+            classificacao = st.segmented_control("Classificação*", options=df["classificacao"].dropna().unique())  
+            data_inicio = st.date_input("Data de Início", value=datetime.now().date())
+            
+            st.markdown("### Anexos:")
+            anexos = [lbl for lbl, chk in [("NF", st.checkbox("Nota Fiscal")), ("BOL", st.checkbox("BOL")), ("FAT", st.checkbox("FAT"))] if chk]
+            anexos_str = " / ".join(anexos)
 
-                st.divider()
+            st.divider()
 
-                if st.form_submit_button("Confirmar adição de contrato", type="secondary"):
-                    if any([
-                        not contrato, not numero_contrato, 
-                        not estabelecimento, not classificacao,
-                        valor_contrato <= 0, duracao <= 0, conta == "0.0", centro_custo == "0.0"
-                    ]):
-                        st.error("Preencha todos os campos obrigatórios antes de continuar.", icon="🚨")
+            if st.form_submit_button("Confirmar adição de contrato", type="secondary"):
+                if any([not contrato, not numero_contrato, not estabelecimento, not classificacao, duracao <= 0]):
+                    st.error("Preencha todos os campos obrigatórios.", icon="🚨")
+                else:
+                    data_inicio_dt = datetime.combine(data_inicio, datetime.min.time())
+                    data_termino_dt = data_inicio_dt + relativedelta(months=duracao, days=-1)
+                    valor_parcela = valor_contrato / duracao
+
+                    new_contrato = {
+                        "situacao": "ATIVO", "numero": numero_contrato, "contrato": contrato,
+                        "conta": conta, "centro_custo": centro_custo, "estabelecimento": estabelecimento,
+                        "classificacao": classificacao, "cnpj": cnpj, "anexos": anexos_str,
+                        "valor_contrato": valor_contrato, "inicio": data_inicio_dt.isoformat(),
+                        "termino": data_termino_dt.isoformat(),
+                    }
                     
-                    else:
-                        data_inicio = datetime.combine(data_inicio, datetime.min.time())
-                        data_termino = data_inicio + relativedelta(months=duracao, days=-1)
-                        valor_parcela = valor_contrato / duracao
-
-                        new_contrato = {
-                        "situacao": "ATIVO",
-                        "numero": numero_contrato,
-                        "contrato": contrato,
-                        "conta": conta,
-                        "centro_custo": centro_custo,
-                        "estabelecimento": estabelecimento,
-                        "classificacao": classificacao,
-                        "cnpj": cnpj,
-                        "anexos": anexos_str,
-                        "valor_contrato": valor_contrato,
-                        "inicio": data_inicio.isoformat(),
-                        "termino": data_termino.isoformat(),
-                            }
+                    try:
+                        response = supabase.table("contratos").insert(new_contrato).execute()
+                        new_id = response.data[0]["id"]
                         
+                        batch_parcelas = []
+                        for i in range(duracao):
+                            d_parc = data_inicio_dt + relativedelta(months=i)
+                            batch_parcelas.append({
+                                "contrato_id": new_id, "situacao": "ATIVO",
+                                "ano": d_parc.year, "mes": d_parc.month,
+                                "data_emissao": d_parc.isoformat(),
+                                "data_vencimento": (d_parc + relativedelta(months=1)).isoformat(),       
+                                "tipo": "CONTRATO", "contrato": contrato,
+                                "classificacao": classificacao, "referente": classificacao,
+                                "estabelecimento": estabelecimento, "status": "ABERTO",
+                                "valor": valor_parcela
+                            })
+                        
+                        supabase.table("parcelas").insert(batch_parcelas).execute()
+                        st.toast(f"Contrato criado com {len(batch_parcelas)} parcelas.")
+                        time.sleep(1)
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao criar contrato: {e}")
+
+
+def delete_contract(df) -> None: 
+    ccol2, = st.columns(1)
+    supabase = get_supabase_client()
+
+    with ccol2:
+        st.subheader("Excluir Contrato")
+        with st.form("form_excluir_contrato", clear_on_submit=True):
+            contrato_exc = st.selectbox("Contrato a excluir: ", options=df["contrato"].dropna().unique())
+            st.warning("Atenção: A exclusão é permanente.", icon="⚠️")
+
+            if st.form_submit_button("Confirmar Exclusão", type="primary"):
+                try:
+                    supabase.table("contratos").delete().eq("contrato", contrato_exc).execute()
+                    supabase.table("parcelas").delete().eq("contrato", contrato_exc).execute()
+                    st.success("Contrato excluído!")
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao excluir: {e}")
+
+def active_deactive_contract(df) -> None:
+    coll3, = st.columns(1)
+    supabase = get_supabase_client()
+
+    with coll3:
+        st.subheader("Ativar/Desativar Contrato")
+        opcoes_contrato = df["contrato"].dropna().unique()
+        
+        if not any(opcoes_contrato):
+            st.warning("Nenhum contrato disponível.")
+            return
+
+        contrato_sel = st.selectbox("Selecione o Contrato:", options=opcoes_contrato, key="sb_contrato_status")
+
+        if contrato_sel:
+            contrato_info = df[df["contrato"] == contrato_sel]
+            if not contrato_info.empty:
+                status_atual = contrato_info.iloc[0]["situacao"]
+                novo_status = "INATIVO" if status_atual == "ATIVO" else "ATIVO"
+                btn_label = f"{'Desativar' if status_atual == 'ATIVO' else 'Ativar'} Contrato"
+
+                with st.form(f"form_{novo_status.lower()}_contrato"):
+                    if st.form_submit_button(btn_label, type="primary"):
                         try:
-                            response = supabase.table("contratos").insert(new_contrato).execute()
-                            batch_parcelas = []
-                            new_id = response.data[0]["id"]
-
-                            for i in range(duracao):
-                                data_parcela = data_inicio + relativedelta(months=i)
-
-                                batch_parcelas.append({
-                                    "contrato_id": new_id,
-                                    "situacao": "ATIVO",
-                                    "ano": data_parcela.year,
-                                    "mes": data_parcela.month,
-                                    "data_emissao": data_parcela.isoformat(),
-                                    "data_vencimento": (data_parcela + relativedelta(months=1)).isoformat(),       
-                                    "tipo": "CONTRATO",
-                                    "contrato": contrato,
-                                    "classificacao": classificacao,
-                                    "referente": classificacao,
-                                    "estabelecimento": estabelecimento,
-                                    "status": "ABERTO",
-                                    "valor": valor_parcela,})
-                                print(f"{contrato} - parcela {i+1} adicionada")
-
-                            supabase.table("parcelas").insert(batch_parcelas).execute()
-
-                            st.success(f"Contrato adicionado! \n{len(batch_parcelas)} Parcelas criadas com sucesso!")
+                            supabase.table("contratos").update({"situacao": novo_status}).eq("contrato", contrato_sel).execute()
+                            supabase.table("parcelas").update({"situacao": novo_status}).eq("contrato", contrato_sel).execute()
+                            st.success(f"Contrato {novo_status.lower()} com sucesso!")
                             st.cache_data.clear()
                             st.rerun()
-                                
                         except Exception as e:
-                            st.error(f"Erro ao criar contrato: {e}")
+                            st.error(f"Erro ao alterar status: {e}")
 
-    def delete_contract(df) -> None: 
-        ccol2, = st.columns(1)
+def edit_contract(df) -> None:
+    coll4, = st.columns(1)
+    supabase = get_supabase_client()
 
-        with ccol2:
-            st.subheader("Excluir Contrato")
+    with coll4:
+        st.subheader("Editar informações")
+        opcoes_contrato = df["contrato"].dropna().unique()
+        if not any(opcoes_contrato):
+            st.warning("Nenhum contrato existente.")
+            return
+
+        contrato_edit = st.selectbox("Selecione o Contrato", options=opcoes_contrato)
+        st.markdown("##### Dados do Contrato")
+        
+        dados = supabase.table("contratos").select("*").eq("contrato", contrato_edit).execute().data[0]
+        dados["valor_contrato"] = dados.get("valor_contrato") or 1
+
+        with st.form("form_editar_contrato", clear_on_submit=True):
+            duracao = 1
+            if dados["termino"] and dados["inicio"]:
+                d_rel = relativedelta(datetime.fromisoformat(dados["termino"]), datetime.fromisoformat(dados["inicio"]))
+                duracao = int(d_rel.years * 12 + d_rel.months)
             
-            with st.form("form_excluir_contrato", clear_on_submit=True):
-                contrato_exc = st.selectbox("Contrato a excluir: ", options=df["contrato"].dropna().unique())
-                st.warning("Atenção: A exclusão é permanente e não pode ser desfeita.", icon="⚠️")
-
-                if st.form_submit_button("Confirmar Exclusão", type="primary"):
-                    try:
-                        supabase.table("contratos").delete().eq("contrato", contrato_exc).execute()
-                        supabase.table("parcelas").delete().eq("contrato", contrato_exc).execute()
-                        st.success("Contrato excluído com sucesso!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao excluir contrato: {e}")
-
-
-    def active_deactive_contract(df) -> None:
-            coll3, = st.columns(1)
-
-            with coll3:
-                st.subheader("Ativar/Desativar Contrato")
-
-                opcoes_contrato = df["contrato"].dropna().unique()
-                if not any(opcoes_contrato):
-                    st.warning("Nenhum contrato para ativar ou desativar.")
-                    return
-
-                contrato_selecionado = st.selectbox(
-                    "Selecione o Contrato:",
-                    options=opcoes_contrato,
-                    key="sb_contrato_status"  
-                )
-
-                if contrato_selecionado:
-                    contrato_info = df[df["contrato"] == contrato_selecionado]
-                    
-                    if not contrato_info.empty:
-                        status_atual = contrato_info.iloc[0]["situacao"]
-
-                        if status_atual == "ATIVO":
-                            with st.form("form_desativar_contrato"):
-                                if st.form_submit_button("Desativar Contrato", type="primary"):
-                                    try:
-                                        supabase.table("contratos").update({"situacao": "INATIVO"}).eq("contrato", contrato_selecionado).execute()
-                                        supabase.table("parcelas").update({"situacao": "INATIVO"}).eq("contrato", contrato_selecionado).execute()
-                                        st.success("Contrato desativado com sucesso!")
-                                        st.cache_data.clear()
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"Erro ao desativar contrato: {e}")
-
-                        elif status_atual == "INATIVO":
-                            with st.form("form_ativar_contrato"):
-                                if st.form_submit_button("Ativar Contrato", type="primary"):
-                                    try:
-                                        supabase.table("contratos").update({"situacao": "ATIVO"}).eq("contrato", contrato_selecionado).execute()
-                                        supabase.table("parcelas").update({"situacao": "ATIVO"}).eq("contrato", contrato_selecionado).execute()
-                                        st.success("Contrato ativado com sucesso!")
-                                        st.cache_data.clear()
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"Erro ao ativar contrato: {e}")
-
-    def edit_contract(df) -> None:
-        coll4, = st.columns(1)
-
-        with coll4:
-            st.subheader("Editar informações")
-            opcoes_contrato = df["contrato"].dropna().unique()
-            if not any(opcoes_contrato):
-                st.warning("Nenhum contrato existente.")
-                return
-
-            contrato_edit = st.selectbox(label="Selecione o Contrato",options=opcoes_contrato)
-            st.markdown("##### Dados do Contrato")
-            dados_contrato = supabase.table("contratos").select("*").eq("contrato", contrato_edit).execute()
-            dict_dados = dados_contrato.data[0]
-            dict_dados["valor_contrato"] = 1 if not dict_dados["valor_contrato"] else dict_dados["valor_contrato"]
-
-
-            with st.form("form_editar_contrato", clear_on_submit=True):
-                if dict_dados["termino"] and dict_dados["inicio"]:
-                   print(dict_dados["termino"], type(dict_dados["termino"])) 
-                   print(dict_dados["inicio"], type(dict_dados["termino"])) 
-                   duracao = relativedelta(datetime.fromisoformat(dict_dados["termino"]), datetime.fromisoformat(dict_dados["inicio"]))
-                   duracao = int(duracao.years * 12 + duracao.months)
-                else:
-                    duracao = 1
-                contrato = st.text_input("Nome do Contrato", value=dict_dados["contrato"])
-                contrato = contrato.upper()
-                cnpj = st.text_input("CNPJ", value=dict_dados["cnpj"])
-                numero_contrato = st.text_input("Número do Contrato (ou 'PEDIDO')", value=dict_dados["numero"])
-                descricao = st.text_input("Descrição", value=dict_dados["descricao"])
-                st.markdown("---")
-                estabelecimento = st.selectbox("Estabelecimento", options=df["estabelecimento"].dropna().unique(), index=df["estabelecimento"].dropna().unique().tolist().index(dict_dados["estabelecimento"]))
-                valor_contrato = st.number_input("Valor do Contrato R$", format="%.2f", step=1.0, min_value=1.0, value=float(dict_dados["valor_contrato"]))
-                duracao = st.number_input("Duração do contrato (meses)", format="%d", value=duracao, min_value=1, step=1)
-                conta = st.number_input("Conta", step=1.0, value=float(dict_dados["conta"]))
-                conta = str(float(conta))
-                centro_custo = st.number_input("Centro de Custo", step=1.0, value=float(dict_dados["centro_custo"]))
-                centro_custo = str(float(centro_custo))
-                classificacao = st.selectbox("Classificação", options=df["classificacao"].dropna().unique(), index=list(df["classificacao"].dropna().unique()).index(dict_dados["classificacao"]))  
-                data_inicio = st.date_input("Data de Início", value=dict_dados["inicio"])
-                if duracao:
-                    valor_parcela = valor_contrato / duracao
-                    if data_inicio:
-                        duracao_delta = relativedelta(months=duracao)
-                        data_termino = data_inicio + relativedelta(months=duracao, days=-1)
-                if st.form_submit_button("Atualizar Dados", type="primary"):
-                    edited_contract = {
-                        "situacao": "ATIVO",
-                        "numero": numero_contrato,
-                        "contrato": contrato,
-                        "cnpj": cnpj,
-                        "conta": conta,
-                        "centro_custo": centro_custo,
-                        "classificacao": classificacao,
-                        "estabelecimento": estabelecimento,
-                        "descricao": descricao,
-                        "valor_contrato": valor_contrato,
-                        "anexos": dict_dados["anexos"],
-                    }
-
-                    if data_inicio:
-                        edited_contract["inicio"] = data_inicio.isoformat()
-                        edited_contract["termino"] = data_termino.isoformat()
-
-
-                    try:
-                        supabase.table("contratos").update(edited_contract).eq("contrato", contrato_edit).execute()
-                        st.success("Contrato atualizado com sucesso!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao atualizar contrato: {e}")
-
-    def renew_contract(df) -> None:
-        coll5, = st.columns(1)
-
-        with coll5:
-            st.subheader("Renovação de Contrato")
+            contrato = st.text_input("Nome do Contrato", value=dados["contrato"]).upper()
+            cnpj = st.text_input("CNPJ", value=dados["cnpj"])
+            numero_contrato = st.text_input("Número (ou 'PEDIDO')", value=dados["numero"])
+            descricao = st.text_input("Descrição", value=dados["descricao"])
+            st.markdown("---")
             
-            hoje = datetime.now().date()
-            df['termino'] = pd.to_datetime(df['termino']).dt.date
+            try:
+                idx_estab = df["estabelecimento"].dropna().unique().tolist().index(dados["estabelecimento"])
+            except ValueError: idx_estab = 0
             
-            contratos_renovar = df["contrato"][df["termino"] < hoje].dropna().unique()
-            
-            if not any(contratos_renovar):
-                st.warning("Nenhum contrato para renovar.")
-                return
-            
-            contrato_renew = st.selectbox("Contrato a renovar:", options=contratos_renovar)
-            data_termino = df.loc[df["contrato"] == contrato_renew, "termino"].iloc[0]
-            dias_vencido = (hoje - data_termino).days
-            
-            st.warning(f"O contrato {contrato_renew} está vencido há {dias_vencido} dias.")
+            try:
+                idx_class = list(df["classificacao"].dropna().unique()).index(dados["classificacao"])
+            except ValueError: idx_class = 0
 
-            with st.form("form_renovar_contrato", clear_on_submit=True):
-                dias_renovar = st.number_input("Renovar por quantos dias?", min_value=30, step=30)
+            estabelecimento = st.selectbox("Estabelecimento", options=df["estabelecimento"].dropna().unique(), index=idx_estab)
+            valor_contrato = st.number_input("Valor R$", format="%.2f", step=1.0, min_value=1.0, value=float(dados["valor_contrato"]))
+            duracao = st.number_input("Duração (meses)", format="%d", value=duracao, min_value=1, step=1)
+            conta = str(float(st.number_input("Conta", step=1.0, value=float(dados.get("conta") or 0))))
+            centro_custo = str(float(st.number_input("Centro de Custo", step=1.0, value=float(dados.get("centro_custo") or 0))))
+            classificacao = st.selectbox("Classificação", options=df["classificacao"].dropna().unique(), index=idx_class)
+            data_inicio = st.date_input("Data de Início", value=datetime.fromisoformat(dados["inicio"]).date() if dados["inicio"] else None)
 
-                if st.form_submit_button("Renovar Contrato", type="primary"):
+            if st.form_submit_button("Atualizar Dados", type="primary"):
+                edited_contract = {
+                    "situacao": "ATIVO", "numero": numero_contrato, "contrato": contrato,
+                    "cnpj": cnpj, "conta": conta, "centro_custo": centro_custo,
+                    "classificacao": classificacao, "estabelecimento": estabelecimento,
+                    "descricao": descricao, "valor_contrato": valor_contrato, "anexos": dados["anexos"],
+                }
+                if data_inicio:
+                    edited_contract["inicio"] = data_inicio.isoformat()
+                    edited_contract["termino"] = (data_inicio + relativedelta(months=duracao, days=-1)).isoformat()
+
+                try:
+                    supabase.table("contratos").update(edited_contract).eq("contrato", contrato_edit).execute()
+                    st.success("Atualizado com sucesso!")
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao atualizar: {e}")
+
+def renew_contract(df) -> None:
+    coll5, = st.columns(1)
+    supabase = get_supabase_client()
+
+    with coll5:
+        st.subheader("Renovação de Contrato")
+        hoje = datetime.now().date()
+        df['termino_dt'] = pd.to_datetime(df['termino']).dt.date
+        
+        contratos_renovar = df.loc[df["termino_dt"] < hoje, "contrato"].dropna().unique()
+        
+        if len(contratos_renovar) == 0:
+            st.warning("Nenhum contrato para renovar.")
+            return
+        
+        contrato_renew = st.selectbox("Contrato a renovar:", options=contratos_renovar)
+        data_termino = df.loc[df["contrato"] == contrato_renew, "termino_dt"].iloc[0]
+        dias_vencido = (hoje - data_termino).days
+        
+        st.warning(f"O contrato {contrato_renew} está vencido há {dias_vencido} dias.")
+
+        with st.form("form_renovar_contrato", clear_on_submit=True):
+            dias_renovar = st.number_input("Renovar por quantos dias?", min_value=30, step=30)
+            if st.form_submit_button("Renovar Contrato", type="primary"):
+                try:
                     renovacao = {
                         "termino": (hoje + relativedelta(days=dias_renovar)).isoformat(),
                         "situacao": "ATIVO",
                     }
-                
-                    try:
-                        supabase.table("contratos").update(renovacao).eq("contrato", contrato_renew).execute()
-                        st.success("Contrato renovado com sucesso!")
-                        st.cache_data.clear()
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Erro ao renovar contrato: {e}")
+                    supabase.table("contratos").update(renovacao).eq("contrato", contrato_renew).execute()
+                    st.success("Renovado com sucesso!")
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao renovar: {e}")
 
 
-    def tabs_show() -> None:
-        contratos = load_data("contratos")
-        tab_novo, tab_editar, tab_renovar, tab_desativar = st.tabs([
-        "Novo Contrato", "Editar Contrato", "Renovar Contrato", "Desativar Contrato"])
+# --- FUNÇÃO PRINCIPAL ---
+def contratos() -> None:
+    contratos_df = load_data("contratos")
+    parcelas_df = load_data("parcelas")
 
-        with tab_novo:
-            new_contract(contratos)
-        with tab_editar:
-            edit_contract(contratos)
-        with tab_renovar:
-            renew_contract(contratos)
-        with tab_desativar:
-            active_deactive_contract(contratos)
-        # with tab_excluir:
-        #     delete_contract(contratos)
-        
+    filter_config = ["situacao", "contrato", "estabelecimento", "classificacao", "pedido"]
+    initialize_state(contratos_df, filter_config)
 
-    def show() -> None:
-        st.set_page_config(
-            page_title="ContraX",
-            layout="wide",
-        )
-        
-        contratos = load_data("contratos")
-        parcelas = load_data("parcelas")
+    st.title("Prestadores de Contratos")
+    st.divider()
+    
+    with st.expander("Filtros de Contratos", expanded=True):
+        show_filters(contratos_df, filter_config)
+    
+    mask = (
+        contratos_df["situacao"].isin(st.session_state.contratos_situacao_selecionado) &
+        contratos_df["contrato"].isin(st.session_state.contratos_contrato_selecionado) &
+        contratos_df["estabelecimento"].isin(st.session_state.contratos_estabelecimento_selecionado) &
+        contratos_df["classificacao"].isin(st.session_state.contratos_classificacao_selecionado)
+    )
+    
+    if st.session_state.contratos_pedido_selecionado == ["Pedido"]:
+        mask &= (contratos_df["numero"] == "PEDIDO")
+    elif st.session_state.contratos_pedido_selecionado == ['Contrato']:
+        mask &= (contratos_df["numero"] != "PEDIDO")
 
-        filter_config = [
-            ("situacao"),
-            ("contrato"),
-            ("estabelecimento"),
-            ("classificacao"),
-            ("pedido")
-        ]
-        
-        filter_keys = [f for f in filter_config]
-        initialize_state(contratos, filter_keys)
+    contratos_filtrado = contratos_df[mask].drop(columns=["id", 'inicio'])
+    
+    st.dataframe(
+        contratos_filtrado, hide_index=True, width='stretch',
+        column_config={
+            "situacao": st.column_config.TextColumn("Situação", width="small"),
+            "numero": st.column_config.TextColumn("Número", width="small"),
+            "contrato": st.column_config.TextColumn("Contrato", width="small"),
+            "conta": st.column_config.TextColumn("Conta", width="small"),
+            "centro_custo": st.column_config.TextColumn("Centro de Custo", width="small"),
+            "estabelecimento": st.column_config.TextColumn("Estabelecimento", width="small"),
+            "classificacao": st.column_config.TextColumn("Classificação", width="small"),
+            "descricao": st.column_config.TextColumn("Descrição", width="small"),
+            "cnpj": st.column_config.TextColumn("CNPJ", width="small"),
+            "anexos": st.column_config.TextColumn("Anexos", width="small"),
+            "valor_contrato": st.column_config.NumberColumn("Valor do Contrato", format='R$ %.2f'),
+            "termino": st.column_config.DateColumn("Término", format="DD/MM/YY")                
+        }
+    )
 
-     
-        st.title("Prestadores de Contratos")
-        st.divider()
-        with st.expander("Filtros de Contratos", expanded=True):
-          show_filters(contratos, filter_config)
-        
-        contratos_filtrado = contratos[
-            (contratos["situacao"].isin(st.session_state.contratos_situacao_selecionado)) &
-            (contratos["contrato"].isin(st.session_state.contratos_contrato_selecionado)) &
-            (contratos["estabelecimento"].isin(st.session_state.contratos_estabelecimento_selecionado)) &
-            (contratos["classificacao"].isin(st.session_state.contratos_classificacao_selecionado)) 
-        ]
-        if st.session_state.contratos_pedido_selecionado == ["Pedido"]:
-            contratos_filtrado = contratos_filtrado[
-                (contratos_filtrado["numero"] == "PEDIDO")
-        ]
-        elif st.session_state.contratos_pedido_selecionado == ['Contrato']:
-            contratos_filtrado = contratos_filtrado[
-                (contratos_filtrado["numero"] != "PEDIDO")
-            ]
+    show_stats(contratos_filtrado, "valor_contrato", parcelas_df)
+    st.divider()
+    
+    if "navegacao_acoes_contratos" not in st.session_state:
+        st.session_state.navegacao_acoes_contratos = "Novo Contrato"
 
+    opcoes_acao = ["Novo Contrato", "Editar Contrato", "Renovar Contrato", "Ativar/Desativar", 'Excluir Contrato']
+    acao_selecionada = st.segmented_control(
+        "Gerenciar Contratos:", options=opcoes_acao, 
+        selection_mode="single", key="navegacao_acoes_contratos"
+    )
+    
+    if not acao_selecionada: acao_selecionada = "Novo Contrato"
+    st.write("---")
 
-        contratos_filtrado = contratos_filtrado.drop(columns=["id", 'inicio'])
-        st.dataframe(
-            contratos_filtrado,
-            hide_index=True,
-            width='stretch',
-            column_config={
-                "situacao": st.column_config.TextColumn("Situação", width="small"),
-                "numero": st.column_config.TextColumn("Número", width="small"),
-                "contrato": st.column_config.TextColumn("Contrato", width="small"),
-                "conta": st.column_config.TextColumn("Conta", width="small"),
-                "centro_custo": st.column_config.TextColumn("Centro de Custo", width="small"),
-                "estabelecimento": st.column_config.TextColumn("Estabelecimento", width="small"),
-                "classificacao": st.column_config.TextColumn("Classificação", width="small"),
-                "descricao": st.column_config.TextColumn("Descrição", width="small"),
-                "cnpj": st.column_config.TextColumn("CNPJ", width="small"),
-                "anexos": st.column_config.TextColumn("Anexos", width="small"),
-                "valor_contrato": st.column_config.NumberColumn("Valor do Contrato", format='R$ %.2f'),
-                "termino": st.column_config.DateColumn("Término", format="DD/MM/YY")                
-            }
-        )
-
-
-        show_stats(contratos_filtrado, "valor_contrato", parcelas)
-        st.divider()
-        tabs_show()
-
-    show()
+    acoes = {
+        "Novo Contrato": new_contract,
+        "Editar Contrato": edit_contract,
+        "Renovar Contrato": renew_contract,
+        "Ativar/Desativar": active_deactive_contract,
+        "Excluir Contrato": delete_contract
+    }
+    
+    if acao_selecionada in acoes:
+        acoes[acao_selecionada](contratos_df)
 
 if __name__ == "__main__":
     contratos()
