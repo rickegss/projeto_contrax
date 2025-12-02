@@ -4,17 +4,22 @@ from supabase import create_client, Client
 from utils.stamp import mes_dict
 
 @st.cache_resource
-def get_supabase_client() -> Client:
-    url = st.secrets["connections"]["supabase"]["SUPABASE_URL"]
-    key = st.secrets["connections"]["supabase"]["SUPABASE_KEY"]
-    if key == st.secrets["connections_homolog"]["supabase"]["SUPABASE_KEY"]:
-        st.title("Ambiente de teste")
+def get_supabase_client(env: str) -> Client:
+    env = st.session_state.get("env", "prod")
+    
+    if env == "homolog":
+        url = st.secrets["connections_homolog"]["supabase"]["SUPABASE_URL"]
+        key = st.secrets["connections_homolog"]["supabase"]["SUPABASE_KEY"]
+    else:
+        url = st.secrets["connections"]["supabase"]["SUPABASE_URL"]
+        key = st.secrets["connections"]["supabase"]["SUPABASE_KEY"]
 
     return create_client(url, key)
 
 @st.cache_data(ttl=300)
 def load_data(table_name: str) -> pd.DataFrame:
-    supabase = get_supabase_client()
+    current_env = st.session_state.get("env", "prod")
+    supabase = get_supabase_client(current_env)
     all_data = []
     offset = 0
     batch_size = 1000

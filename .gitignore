@@ -11,3 +11,4 @@ data/NF_tests
 .devcontainer/
 *.csv
 data_update/
+project_tree.txt

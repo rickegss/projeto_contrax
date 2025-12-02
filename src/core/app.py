@@ -5,7 +5,8 @@ from _pages.contratos import contratos
 from _pages.dashboard import show_dashboard
 
 def main():
-    supabase = get_supabase_client()
+    current_env = st.session_state.get("env", "prod")
+    supabase = get_supabase_client(current_env)
 
     logo1, logo2 = st.columns([0.2, 1])
     with logo1: st.image("src/logo/ContraX_Logo.png", width=240, caption="Gestão de Contratos")
