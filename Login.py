@@ -1,6 +1,6 @@
 import streamlit as st
 from src.core.app import main
-from ui_config.general_config import setup_page_config, apply_login_styles, render_footer
+from src.ui_config.general_config import setup_page_config, apply_login_styles, render_footer
 
 setup_page_config()
 
