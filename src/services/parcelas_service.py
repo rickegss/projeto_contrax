@@ -1,8 +1,8 @@
 from dateutil.relativedelta import relativedelta
 from datetime import datetime
 import time
-from utils.pdf_extractor import extract_pdf 
-from utils.stamp import data_lanc, ano_atual
+from src.utils.pdf_extractor import extract_pdf 
+from src.utils.stamp import data_lanc, ano_atual
 import streamlit as st
 
 def view_lancar(df, df_filter, supabase):

@@ -1,6 +1,6 @@
 import streamlit as st
-from core.app import main
-from ui_config.general_config import (
+from src.core.app import main
+from src.ui_config.general_config import (
     setup_page_config, 
     apply_login_styles, 
     apply_global_styles, 

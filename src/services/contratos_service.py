@@ -3,8 +3,8 @@ import pandas as pd
 import streamlit as st
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from utils.stamp import ano_atual
-from utils.formatters import formatar_brl
+from src.utils.stamp import ano_atual
+from src.utils.formatters import formatar_brl
 
 def new_contract(df, supabase) -> None:
     ccol1, = st.columns(1)

@@ -1,10 +1,10 @@
 import pandas as pd
 import streamlit as st
-from services.contratos_service import new_contract, delete_contract, active_deactive_contract, edit_contract, renew_contract, relatorio_anual
-from utils.stamp import ano_atual
+from src.services.contratos_service import new_contract, delete_contract, active_deactive_contract, edit_contract, renew_contract, relatorio_anual
+from src.utils.stamp import ano_atual
 import io
-from core.database_connections import load_data
-from utils.formatters import formatar_brl
+from src.core.database_connections import load_data
+from src.utils.formatters import formatar_brl
 
 def to_excel(df: pd.DataFrame) -> bytes:
     output = io.BytesIO()
