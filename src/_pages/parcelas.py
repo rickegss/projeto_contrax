@@ -102,7 +102,7 @@ def home(supabase):
         actions_map = {
             "Lançar Parcela": lambda: view_lancar(df, df_filter, supabase),
             "Modificar / Reverter": lambda: view_modificar(df, df_filter, supabase),
-            "Adicionar Parcela": lambda: view_adicionar(df, supabase),
+            "Adicionar Parcela": lambda: view_adicionar(df, df_filter, supabase),
             "Excluir Parcela": lambda: view_excluir(df, supabase)
         }
         

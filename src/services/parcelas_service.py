@@ -124,7 +124,7 @@ def view_modificar(df, df_filter, supabase):
             st.error(f"Erro ao processar parcela: {e}")
 
 
-def view_adicionar(df, supabase):
+def view_adicionar(df, df_filter, supabase):
     st.subheader("Adicionar Parcela de Contrato")
     contratos_ativos = df.loc[df['situacao'] == 'ATIVO', 'contrato'].dropna().unique()
 
@@ -141,8 +141,8 @@ def view_adicionar(df, supabase):
             try:
                 row_ref = df[df["contrato"] == contrato_add].iloc[0]
                 add_data = {
-                    "ano": ano_atual, 
-                    "mes": datetime.now().month,
+                    "ano": (df["ano"] == df_filter["ano"].iloc[0]), 
+                    "mes": (df["mes"] == df_filter["mes"].iloc[0]),
                     "data_lancamento": None,
                     "data_emissao": data_lanc.isoformat(),
                     "data_vencimento": (data_lanc + relativedelta(months=1)).isoformat(),
