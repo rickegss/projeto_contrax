@@ -1,51 +1,11 @@
 from datetime import datetime
 import time
 import streamlit as st
-import pandas as pd
-from src.utils.stamp import now, mes_atual, ano_atual, data_lanc, mes_dict
+from src.utils.stamp import mes_atual, ano_atual, data_lanc
 from src.utils.pdf_extractor import extract_pdf 
-from supabase import create_client, Client
-from src._pages.contratos import contratos, show_stats
-from src._pages.dashboard import show_dashboard
+from src._pages.contratos import show_stats
 from dateutil.relativedelta import relativedelta
-
-# --- CONEXÃO E DADOS ---
-@st.cache_resource
-def get_supabase_client() -> Client:
-    url = st.secrets["connections"]["supabase"]["SUPABASE_URL"]
-    key = st.secrets["connections"]["supabase"]["SUPABASE_KEY"]
-    if key == st.secrets["connections_homolog"]["supabase"]["SUPABASE_KEY"]:
-        st.title("Ambiente de teste")
-
-    return create_client(url, key)
-
-@st.cache_data(ttl=300)
-def load_data(table_name):
-    supabase = get_supabase_client()
-    all_data = []
-    offset = 0
-    batch_size = 1000
-
-    while True:
-        data = supabase.table(table_name).select("*").range(offset, offset + batch_size - 1).execute()
-        if not data.data:
-            break
-        all_data.extend(data.data)
-        offset += batch_size
-
-    df = pd.DataFrame(all_data)
-    
-    if table_name == "parcelas":
-        cols_date = ["data_lancamento", "data_emissao", "data_vencimento"]
-        df[cols_date] = df[cols_date].apply(pd.to_datetime, errors="coerce")
-        
-        cols_cat = ["tipo", "contrato", "estabelecimento", "status"]
-        df[cols_cat] = df[cols_cat].astype("category")
-        
-        month_display_map = {v: k for k, v in mes_dict.items()}
-        df['mes_nome'] = df['mes'].map(lambda x: month_display_map.get(x, f'Mês {x}'))
-
-    return df
+from src.core.database_connections import load_data
 
 def selecionar_todos(chave_estado, opcoes):
     st.session_state[chave_estado] = opcoes
@@ -53,7 +13,6 @@ def selecionar_todos(chave_estado, opcoes):
 def limpar_selecao(chave_estado):
     st.session_state[chave_estado] = []
 
-# --- COMPONENTES DE VIEW ---
 def render_filters(df):
     with st.expander("Filtros de Visualização", expanded=True):
         cols = st.columns(5)
@@ -286,15 +245,12 @@ def view_excluir(df, supabase):
                 except Exception as e:
                     st.error(f"Erro ao excluir: {e}", icon="❌")
 
-# --- MAIN HOME ---
-def home():
+def home(supabase):
     st.title("Lançamento de Parcelas")
     st.divider()
 
     try:
         df = load_data("parcelas")
-        supabase = get_supabase_client()
-
         render_filters(df)
 
         mask = (

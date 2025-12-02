@@ -3,62 +3,9 @@ import pandas as pd
 import streamlit as st
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from supabase import create_client, Client
-from src.utils.stamp import mes_dict, ano_atual
+from src.utils.stamp import ano_atual
 import io
-
-@st.cache_resource
-def get_supabase_client() -> Client:
-    url = st.secrets["connections"]["supabase"]["SUPABASE_URL"]
-    key = st.secrets["connections"]["supabase"]["SUPABASE_KEY"]
-    if key == st.secrets["connections_homolog"]["supabase"]["SUPABASE_KEY"]:
-        st.title("Ambiente de teste")
-    return create_client(url, key)
-
-@st.cache_data(ttl=300)
-def load_data(table_name: str) -> pd.DataFrame:
-    supabase = get_supabase_client()
-    all_data = []
-    offset = 0
-    batch_size = 1000
-
-    try:
-        while True:
-            data = supabase.table(table_name).select("*").range(offset, offset + batch_size - 1).execute()
-
-            if not data.data:
-                break
-            
-            all_data.extend(data.data)
-            offset += batch_size
-            
-    except Exception as e:
-        st.error(f"Erro de conexão com o Supabase na tabela '{table_name}'. O banco pode estar pausado ou indisponível.")
-        st.error(f"Detalhe técnico: {e}")
-
-        return pd.DataFrame()
-
-    df = pd.DataFrame(all_data)
-    
-    if df.empty:
-        return df
-
-    if table_name == "parcelas":
-        cols_date = ["data_lancamento", "data_emissao", "data_vencimento"]
-        for col in cols_date:
-            if col in df.columns:
-                df[col] = pd.to_datetime(df[col], errors="coerce")
-        
-        cols_cat = ["tipo", "contrato", "estabelecimento", "status"]
-        for col in cols_cat:
-            if col in df.columns:
-                df[col] = df[col].astype("category")
-        
-        if 'mes' in df.columns:
-            month_display_map = {v: k for k, v in mes_dict.items()}
-            df['mes_nome'] = df['mes'].map(lambda x: month_display_map.get(x, f'Mês {x}'))
-
-    return df
+from src.core.database_connections import load_data
 
 def to_excel(df: pd.DataFrame) -> bytes:
     output = io.BytesIO()
@@ -222,10 +169,8 @@ def show_filters(df, filter_config) -> None:
                  st.button("Recarregar tabela", on_click=st.cache_data.clear, key='contratos_atualizar')
 
 
-# --- CRUD  ---
-def new_contract(df) -> None:
+def new_contract(df, supabase) -> None:
     ccol1, = st.columns(1)
-    supabase = get_supabase_client()
 
     with ccol1:
         st.subheader("Dados do Contrato")
@@ -291,10 +236,9 @@ def new_contract(df) -> None:
                         st.error(f"Erro ao criar contrato: {e}")
 
 
-def delete_contract(df) -> None: 
+def delete_contract(df, supabase) -> None: 
     ccol2, = st.columns(1)
-    supabase = get_supabase_client()
-
+    
     with ccol2:
         st.subheader("Excluir Contrato")
         with st.form("form_excluir_contrato", clear_on_submit=True):
@@ -311,10 +255,9 @@ def delete_contract(df) -> None:
                 except Exception as e:
                     st.error(f"Erro ao excluir: {e}")
 
-def active_deactive_contract(df) -> None:
+def active_deactive_contract(df, supabase) -> None:
     coll3, = st.columns(1)
-    supabase = get_supabase_client()
-
+    
     with coll3:
         st.subheader("Ativar/Desativar Contrato")
         opcoes_contrato = df["contrato"].dropna().unique()
@@ -343,10 +286,9 @@ def active_deactive_contract(df) -> None:
                         except Exception as e:
                             st.error(f"Erro ao alterar status: {e}")
 
-def edit_contract(df) -> None:
+def edit_contract(df, supabase) -> None:
     coll4, = st.columns(1)
-    supabase = get_supabase_client()
-
+    
     with coll4:
         st.subheader("Editar informações")
         opcoes_contrato = df["contrato"].dropna().unique()
@@ -407,10 +349,9 @@ def edit_contract(df) -> None:
                 except Exception as e:
                     st.error(f"Erro ao atualizar: {e}")
 
-def renew_contract(df) -> None:
+def renew_contract(df, supabase) -> None:
     coll5, = st.columns(1)
-    supabase = get_supabase_client()
-
+    
     with coll5:
         st.subheader("Renovação de Contrato")
         hoje = datetime.now().date()
@@ -444,8 +385,7 @@ def renew_contract(df) -> None:
                     st.error(f"Erro ao renovar: {e}")
 
 
-# --- FUNÇÃO PRINCIPAL ---
-def contratos() -> None:
+def contratos(supabase) -> None:
     contratos_df = load_data("contratos")
     parcelas_df = load_data("parcelas")
 
@@ -514,7 +454,4 @@ def contratos() -> None:
     }
     
     if acao_selecionada in acoes:
-        acoes[acao_selecionada](contratos_df)
-
-if __name__ == "__main__":
-    contratos()
+        acoes[acao_selecionada](contratos_df, supabase)
