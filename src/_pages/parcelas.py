@@ -1,8 +1,8 @@
 import streamlit as st
-from src.utils.stamp import mes_atual, ano_atual
-from src._pages.contratos import show_stats
-from src.core.database_connections import load_data
-from src.services.parcelas_service import view_lancar, view_modificar, view_adicionar, view_excluir
+from utils.stamp import mes_atual, ano_atual
+from _pages.contratos import show_stats
+from core.database_connections import load_data
+from services.parcelas_service import view_lancar, view_modificar, view_adicionar, view_excluir
 
 def selecionar_todos(chave_estado, opcoes):
     st.session_state[chave_estado] = opcoes

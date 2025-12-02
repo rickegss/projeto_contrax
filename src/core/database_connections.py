@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
-from src.utils.stamp import mes_dict
+from utils.stamp import mes_dict
 
 @st.cache_resource
 def get_supabase_client() -> Client:

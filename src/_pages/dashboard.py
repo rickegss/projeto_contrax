@@ -1,8 +1,8 @@
 import streamlit as st
-from src.utils.stamp import ano_atual, mes_atual
-from src.core.database_connections import load_data
-from src.services.dashboard_service import filtrar_dados_dashboard
-from src.utils.plots import (
+from utils.stamp import ano_atual, mes_atual
+from core.database_connections import load_data
+from services.dashboard_service import filtrar_dados_dashboard
+from utils.plots import (
     plot_despesa_mensal, 
     plot_total_estabelecimento_bar, 
     plot_classificacao, 

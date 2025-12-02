@@ -1,8 +1,8 @@
 import streamlit as st
-from src.core.database_connections import get_supabase_client
-from src._pages.parcelas import home
-from src._pages.contratos import contratos
-from src._pages.dashboard import show_dashboard
+from core.database_connections import get_supabase_client
+from _pages.parcelas import home
+from _pages.contratos import contratos
+from _pages.dashboard import show_dashboard
 
 def main():
     supabase = get_supabase_client()

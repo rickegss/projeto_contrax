@@ -1,7 +1,7 @@
 import plotly.express as px
 import pandas as pd
 from datetime import datetime
-from src.utils.formatters import formatar_brl
+from utils.formatters import formatar_brl
 
 def plot_despesa_mensal(df):
     df_agrupado = df.groupby(['mes', 'mes_nome'], observed=True)['valor'].sum().reset_index()
