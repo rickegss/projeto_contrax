@@ -1,8 +1,7 @@
 from dateutil.relativedelta import relativedelta
-from datetime import datetime
 import time
-from src.utils.pdf_extractor import extract_pdf 
-from src.utils.stamp import data_lanc, ano_atual
+from src.utils.gemini_extractor import process_invoice 
+from src.utils.stamp import data_lanc
 import streamlit as st
 
 def view_lancar(df, df_filter, supabase):
@@ -12,7 +11,7 @@ def view_lancar(df, df_filter, supabase):
         st.warning("Selecione um ano e mês com parcelas para poder lançar.", icon="🚨")
         return
 
-    filtro_lancaveis = (df["status"] == "ABERTO") & (df["mes"] == df_filter["mes"].iloc[0]) & (df["ano"] == df_filter["ano"].iloc[0])
+    filtro_lancaveis = (df["status"] == "ABERTO") & (df["mes"] == int(df_filter["mes"].iloc[0])) & (df["ano"] == int(df_filter["ano"].iloc[0]))
     parcelas_lancaveis = df[filtro_lancaveis].sort_values(by="contrato", ascending=True)
 
     if parcelas_lancaveis.empty:
@@ -20,40 +19,68 @@ def view_lancar(df, df_filter, supabase):
         return
 
     options_box = {f"{row['contrato']} | {row['id']}": row['id'] for _, row in parcelas_lancaveis.iterrows()}
-    uploaded_file = st.file_uploader("1. Anexar Documento Fiscal (Opcional)", type=["pdf"], key="file_uploader_lancar")
     
-    valor_extraido, doc_extraido = None, ""
+    uploaded_file = st.file_uploader("1. Anexar Documento Fiscal (Opcional)", type=["pdf"], key="file_uploader_lancar")
+
+    if "form_valor" not in st.session_state: st.session_state.form_valor = 0.0
+    if "form_doc" not in st.session_state: st.session_state.form_doc = ""
+    if "last_file" not in st.session_state: st.session_state.last_file = None
+
     if uploaded_file:
-        info = extract_pdf(uploaded_file)
-        valor_extraido = info.get('valor')
-        doc_extraido = info.get('numero', '')
-        if not valor_extraido or not doc_extraido:
-            st.info('Não foi possível extrair todos os dados do PDF. Complete manualmente.')
+        if uploaded_file != st.session_state.last_file:
+            st.session_state.form_valor = 0.0
+            st.session_state.form_doc = ""
+            
+            with st.spinner("🤖 Lendo documento com IA..."):
+                info = process_invoice(uploaded_file)
+                st.session_state.form_valor = info.get('valor_doc', 0.0)
+                st.session_state.form_doc = info.get('numero_doc', '')
+                st.session_state.last_file = uploaded_file
+                
+                if st.session_state.form_valor > 0:
+                    st.toast("Dados preenchidos via IA!", icon="✨")
+    else:
+        if st.session_state.last_file is not None:
+            st.session_state.last_file = None
+            st.session_state.form_valor = 0.0
+            st.session_state.form_doc = ""
+            st.rerun()
 
     with st.form("form_lancar", clear_on_submit=True):
         st.subheader("2. Confirmar Lançamento")
         contrato_lanc = st.selectbox("Contrato para Lançamento:", options=list(options_box.keys()))
-        valor_lanc = st.number_input("Valor R$", value=valor_extraido, placeholder="Ex: 1234,56", format="%.2f", step=1.0, min_value=0.01)
-        doc_lanc = st.text_input("Número do Documento", value=doc_extraido)
+        valor_lanc = st.number_input("Valor R$", value=st.session_state.form_valor, format="%.2f", step=1.0, min_value=0.0)
+        doc_lanc = st.text_input("Número do Documento", value=st.session_state.form_doc)
         
         if st.form_submit_button("Confirmar Lançamento"):
-            if not contrato_lanc or not doc_lanc or valor_lanc is None or valor_lanc <= 0:
+            if not contrato_lanc or not doc_lanc or valor_lanc <= 0:
                 st.warning("É necessário selecionar um contrato e preencher todos os campos devidamente.", icon="🚨")
-                return
-
-            try:
-                id_lanc = options_box[contrato_lanc] 
-                update_data = {"valor": valor_lanc, "data_lancamento": data_lanc.isoformat(), "documento": doc_lanc, "status": "LANÇADO"}
-                upd = supabase.table("parcelas").update(update_data).eq("id", id_lanc).execute()
-                
-                if upd.data:
-                    st.success("Parcela atualizada com sucesso! ✅")
-                    st.cache_data.clear()
-                    st.rerun()
-                else:
-                    st.error("Nenhuma parcela encontrada com este ID.", icon="❌")
-            except Exception as e:
-                st.error(f"Erro: {e}", icon="❌")
+            else:
+                try:
+                    id_lanc = options_box[contrato_lanc]
+                    data_iso = data_lanc.isoformat() if hasattr(data_lanc, 'isoformat') else data_lanc
+                    
+                    update_data = {
+                        "valor": valor_lanc, 
+                        "data_lancamento": data_iso, 
+                        "documento": doc_lanc, 
+                        "status": "LANÇADO"
+                    }
+                    
+                    upd = supabase.table("parcelas").update(update_data).eq("id", id_lanc).execute()
+                    
+                    if upd.data:
+                        st.success("Parcela atualizada com sucesso! ✅")
+                        st.session_state.form_valor = 0.0
+                        st.session_state.form_doc = ""
+                        st.session_state.last_file = None
+                        st.cache_data.clear()
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("Nenhuma parcela encontrada com este ID.", icon="❌")
+                except Exception as e:
+                    st.error(f"Erro: {e}", icon="❌")
 
 
 def view_modificar(df, df_filter, supabase):

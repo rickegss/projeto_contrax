@@ -1,8 +1,9 @@
 pandas
-pdfplumber
 plotly
 python_dateutil
 streamlit
 supabase
 openpyxl
 numpy
+ollama
+pypdf
