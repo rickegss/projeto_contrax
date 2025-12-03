@@ -14,12 +14,14 @@ def process_invoice(uploaded_file):
     
     1. "numero_doc" (string): O número oficial da Nota Fiscal (NFS-e).
        - REGRA DE OURO: Se houver "RPS" e "Número da Nota", O RPS É O PROVISÓRIO (LIXO). Pegue a Nota Definitiva.
-       - CASO BARUERI/INGRAM: O número da nota é curto (ex: 116321) e o RPS é longo (ex: 000120343). ESCOLHA O CURTO.
+       - CASO COMO DE BARUERI/INGRAM: O número da nota é curto (ex: 116321) e o RPS é longo (ex: 000120343). ESCOLHA O CURTO.
        - Ignore rótulos "Fatura" ou "Pedido" se houver "Nota Fiscal".
 
     2. "valor_doc" (float): O valor líquido final a ser pago.
        - Se houver descontos ou retenções de impostos, pegue o valor final (Líquido).
        - Converta para float (ponto decimal).
+
+    > Desconsidere zeros a esquerda no número do documento, caso seja do tipo 'NÚMERO / SÉRIE', retorne somente o número
 
     Retorne apenas: {"numero_doc": "...", "valor_doc": 0.00}
     """
