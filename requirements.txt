@@ -5,5 +5,4 @@ streamlit
 supabase
 openpyxl
 numpy
-ollama
-pypdf
+google.generativeai
