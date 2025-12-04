@@ -6,67 +6,70 @@ import streamlit as st
 
 def view_lancar(df, df_filter, supabase):
     st.subheader("Lançar Nova Parcela")
-
+    
     if df_filter.empty:
         st.warning("Selecione um ano e mês com parcelas para poder lançar.", icon="🚨")
         return
-
+    
     filtro_lancaveis = (df["status"] == "ABERTO") & (df["mes"] == int(df_filter["mes"].iloc[0])) & (df["ano"] == int(df_filter["ano"].iloc[0]))
     parcelas_lancaveis = df[filtro_lancaveis].sort_values(by="contrato", ascending=True)
-
+    
     if parcelas_lancaveis.empty:
         st.warning("Não há parcelas em aberto para o mês e ano atuais.", icon="🚨")
         return
-
+    
     options_box = {f"{row['contrato']} | {row['id']}": row['id'] for _, row in parcelas_lancaveis.iterrows()}
     
-    uploaded_file = st.file_uploader("1. Anexar Documento Fiscal (Opcional)", type=["pdf"], key="file_uploader_lancar")
-
-    if "form_valor" not in st.session_state: st.session_state.form_valor = 0.0
-    if "form_doc" not in st.session_state: st.session_state.form_doc = ""
-    if "last_file" not in st.session_state: st.session_state.last_file = None
-
+    if "form_valor" not in st.session_state:
+        st.session_state.form_valor = 0.0
+    if "form_doc" not in st.session_state:
+        st.session_state.form_doc = ""
+    if "last_file" not in st.session_state:
+        st.session_state.last_file = None
+    if "upload_key" not in st.session_state:
+        st.session_state.upload_key = 0
+    
+    uploaded_file = st.file_uploader("1. Anexar Documento Fiscal (Opcional)", type=["pdf"], key=f"file_uploader_lancar_{st.session_state.upload_key}")
+    
     if uploaded_file:
         if uploaded_file != st.session_state.last_file:
             st.session_state.form_valor = 0.0
             st.session_state.form_doc = ""
-            
-            with st.spinner("🤖 Lendo documento com IA..."):
+            with st.spinner("🧠 Lendo documento com IA..."):
                 info = process_invoice(uploaded_file)
-                st.session_state.form_valor = info.get('valor_doc', 0.0)
-                st.session_state.form_doc = info.get('numero_doc', '')
-                st.session_state.last_file = uploaded_file
-                
-                if st.session_state.form_valor > 0:
-                    st.toast("Dados preenchidos via IA!", icon="✨")
+            st.session_state.form_valor = info.get('valor_doc', 0.0)
+            st.session_state.form_doc = info.get('numero_doc', '')
+            st.session_state.last_file = uploaded_file
+            if st.session_state.form_valor > 0:
+                st.toast("Dados preenchidos com Inteligência Artificial!", icon="✨")
     else:
         if st.session_state.last_file is not None:
             st.session_state.last_file = None
             st.session_state.form_valor = 0.0
             st.session_state.form_doc = ""
-            st.rerun()
-
+    
     with st.form("form_lancar", clear_on_submit=True):
         st.subheader("2. Confirmar Lançamento")
-        contrato_lanc = st.selectbox("Contrato para Lançamento:", options=list(options_box.keys()))
+        
+        contrato_lanc = st.selectbox("Contrato para Lançamento:", options=["Selecione um contrato..."] + list(options_box.keys()), index=0)
         valor_lanc = st.number_input("Valor R$", value=st.session_state.form_valor, format="%.2f", step=1.0, min_value=0.0)
         doc_lanc = st.text_input("Número do Documento", value=st.session_state.form_doc)
         
-        if st.form_submit_button("Confirmar Lançamento"):
-            if not contrato_lanc or not doc_lanc or valor_lanc <= 0:
+        submitted = st.form_submit_button("Confirmar Lançamento")
+        
+        if submitted:
+            if contrato_lanc == "Selecione um contrato..." or not doc_lanc or valor_lanc <= 0:
                 st.warning("É necessário selecionar um contrato e preencher todos os campos devidamente.", icon="🚨")
             else:
                 try:
                     id_lanc = options_box[contrato_lanc]
                     data_iso = data_lanc.isoformat() if hasattr(data_lanc, 'isoformat') else data_lanc
-                    
                     update_data = {
-                        "valor": valor_lanc, 
-                        "data_lancamento": data_iso, 
-                        "documento": doc_lanc, 
+                        "valor": valor_lanc,
+                        "data_lancamento": data_iso,
+                        "documento": doc_lanc,
                         "status": "LANÇADO"
                     }
-                    
                     upd = supabase.table("parcelas").update(update_data).eq("id", id_lanc).execute()
                     
                     if upd.data:
@@ -74,11 +77,12 @@ def view_lancar(df, df_filter, supabase):
                         st.session_state.form_valor = 0.0
                         st.session_state.form_doc = ""
                         st.session_state.last_file = None
+                        st.session_state.upload_key += 1
                         st.cache_data.clear()
                         time.sleep(1)
                         st.rerun()
                     else:
-                        st.error("Nenhuma parcela encontrada com este ID.", icon="❌")
+                        st.error("Não foi possível lançar a parcela. 😕", icon="❌")
                 except Exception as e:
                     st.error(f"Erro: {e}", icon="❌")
 

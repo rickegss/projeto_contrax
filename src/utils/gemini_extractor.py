@@ -7,7 +7,7 @@ genai.configure(api_key=API_KEY)
 
 def process_invoice(uploaded_file):
 
-    modelos = ["gemini-2.5-flash", "gemini-flash-latest"]
+    modelos = ["gemini-2.0-flash-lite", "gemini-2.5-flash-lite"]
     
     prompt = """
     Analise este documento fiscal e extraia estritamente em JSON:

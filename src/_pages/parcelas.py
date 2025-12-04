@@ -109,5 +109,5 @@ def home(supabase):
         if acao in actions_map:
             actions_map[acao]()
 
-    except Exception as e:
-        st.error(f"Erro ao carregar: {e}", icon="❌")
+    except:
+        st.error(f"Erro ao carregar, selecione os filtros corretamente.", icon="❌")
