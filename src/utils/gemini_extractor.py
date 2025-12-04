@@ -18,7 +18,7 @@ def process_invoice(uploaded_file):
        - Ignore rótulos "Fatura" ou "Pedido" se houver "Nota Fiscal".
 
     2. "valor_doc" (float): O valor líquido final a ser pago.
-       - Se houver descontos ou retenções de impostos, pegue o valor final (Líquido).
+       - Priorize o valor total da nota sobre o valor líquido.
        - Converta para float (ponto decimal).
 
     > Desconsidere zeros a esquerda no número do documento, caso seja do tipo 'NÚMERO / SÉRIE', retorne somente o número
