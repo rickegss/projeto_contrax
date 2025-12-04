@@ -12,13 +12,14 @@ def limpar_selecao(chave_estado):
 
 def render_filters(df):
     with st.expander("Filtros de Visualização", expanded=True):
-        cols = st.columns(5)
+        cols = st.columns(6)
         
         filters_conf = [
             ("ano", "Ano", "multiselect"),
             ("mes_nome", "Mês", "multiselect"),
             ("contrato", "Contrato", "multiselect"),
             ("status", "Status", "segmented"),
+            ("tipo", "Tipo", "segmented"),
             ("situacao", "Situação", "segmented")
         ]
 
@@ -27,6 +28,7 @@ def render_filters(df):
             "mes_nome": [mes_atual],
             "contrato": df["contrato"].dropna().sort_values().unique().tolist(),
             "status": "ABERTO",
+            "tipo": "CONTRATO",
             "situacao": "ATIVO"
         }
 
@@ -37,7 +39,7 @@ def render_filters(df):
             if key not in st.session_state:
                 st.session_state[key] = defaults[col_name]
 
-            options = df[col_name].dropna().unique()
+            options = df[col_name].dropna().unique().tolist()
             if col_name == "ano": options = sorted(options)
             if col_name == "contrato": options = sorted(options)
 
@@ -64,6 +66,7 @@ def home(supabase):
             df["mes_nome"].isin(st.session_state.home_mes_selecionado) &
             df["contrato"].isin(st.session_state.home_contrato_selecionado) &
             (df["situacao"] == st.session_state.home_situacao_selecionado) &
+            (df["tipo"] == st.session_state.home_tipo_selecionado) &
             (df["status"] == st.session_state.home_status_selecionado)
         )
         df_filter = df[mask]
@@ -110,4 +113,4 @@ def home(supabase):
             actions_map[acao]()
 
     except:
-        st.error(f"Erro ao carregar, selecione os filtros corretamente.", icon="❌")
+        st.error(f"Nada a carregar, selecione os filtros corretamente.", icon="🔎")
