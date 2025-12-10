@@ -31,6 +31,8 @@ def plot_top_prestadores(df):
     return fig
 
 def plot_faturamento_hcompany(df, dash_ano_selecionado):
+    from src.utils.stamp import mes_dict
+
     df_hcompany = df[
         (df['contrato'].str.startswith("HCOMPANY")) &
         (df['ano'].isin(dash_ano_selecionado)) &
@@ -38,10 +40,20 @@ def plot_faturamento_hcompany(df, dash_ano_selecionado):
     ]
 
     df_agrupado = df_hcompany.groupby(['mes', 'mes_nome'], observed=True)['valor'].sum().reset_index()
-    df_agrupado = df_agrupado.sort_values('mes')
+
+    meses_completos = pd.DataFrame({
+        'mes_nome': list(mes_dict.keys()),
+        'mes': list(mes_dict.values())
+    })
+
+    df_completo = meses_completos.merge(df_agrupado, on=['mes', 'mes_nome'], how='left')
+    df_completo['valor'] = df_completo['valor'].fillna(0)
+    
+    df_completo = df_completo.sort_values('mes')
+
     
     fig = px.line(
-        df_agrupado, 
+        df_completo, 
         x='mes_nome', 
         y='valor', 
         title='Faturamento HCOMPANY', 
