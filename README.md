@@ -106,3 +106,6 @@ Este projeto me permitiu desenvolver competências em:
 - [Google Gemini API](https://ai.google.dev/docs)
 - [Pandas User Guide](https://pandas.pydata.org/docs/user_guide/)
 - [Plotly Python](https://plotly.com/python/)
+
+## Nota
+*  Imagens do projeto estão contidas no diretório "screenshots"!
